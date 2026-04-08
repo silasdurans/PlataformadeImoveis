@@ -61,7 +61,10 @@ export default function Home() {
     );
   };
 
-  const recentProperties = properties.slice(0, 3);
+  const featuredPropertyIds = ["4", "5", "6", "7", "8", "1"];
+  const recentProperties = properties.filter((property) =>
+    featuredPropertyIds.includes(property.id)
+  );
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
