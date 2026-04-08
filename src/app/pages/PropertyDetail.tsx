@@ -5,7 +5,6 @@ import {
   Star, 
   Heart, 
   Share2, 
-  Calendar,
   MessageCircle,
   CheckCircle2,
   Wifi,
@@ -27,6 +26,7 @@ import { useParams, Link } from "react-router";
 import { useState } from "react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion } from "motion/react";
+import { ScheduleVisitModal } from "../components/common/ScheduleVisitModal";
 
 export default function PropertyDetail() {
   const { id } = useParams();
@@ -324,14 +324,7 @@ export default function PropertyDetail() {
               </div>
 
               <div className="space-y-3">
-                <motion.button 
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full bg-[#0F172A] text-white py-3 rounded-xl hover:bg-[#1E293B] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#0F172A]/20"
-                >
-                  <Calendar className="size-5" />
-                  Agendar Visita
-                </motion.button>
+                <ScheduleVisitModal propertyTitle={property.title} />
                 <motion.button 
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
