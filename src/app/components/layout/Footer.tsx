@@ -1,6 +1,6 @@
 import { Mail, Phone, MapPin, Linkedin, Instagram, Facebook } from "lucide-react";
 import { Link } from "react-router";
-import logo from "../../../assets/482221208ce2694bfbd00f953045a69d75c76c41.png";
+import logo from "../../../assets/logo-grupo-sao-paulo.png";
 
 export function Footer() {
   const quickLinks = [

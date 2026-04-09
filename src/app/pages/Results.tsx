@@ -4,7 +4,7 @@ import { AIAgent } from "../components/AIAgent";
 import { Footer } from "../components/Footer";
 import { PropertyCard } from "../components/PropertyCard";
 import { properties } from "../data/properties";
-import { useState } from "react";
+import { useState, Dispatch, SetStateAction } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function Results() {
@@ -39,13 +39,17 @@ export default function Results() {
   ];
 
   const locations = [
-    { id: "centro", label: "Centro", count: 45 },
-    { id: "paulista", label: "Av. Paulista", count: 38 },
-    { id: "zona-sul", label: "Zona Sul", count: 32 },
-    { id: "zona-oeste", label: "Zona Oeste", count: 27 },
+    { id: "centro", label: "Centro", count: properties.filter((property) => property.location.toLowerCase().includes("centro")).length },
+    { id: "renascenca", label: "Renascença", count: properties.filter((property) => property.location.toLowerCase().includes("renasc" )).length },
+    { id: "cohama", label: "Cohama", count: properties.filter((property) => property.location.toLowerCase().includes("cohama")).length },
+    { id: "calhau", label: "Calhau", count: properties.filter((property) => property.location.toLowerCase().includes("calhau")).length },
+    { id: "ponta", label: "Ponta d'Areia", count: properties.filter((property) => property.location.toLowerCase().includes("ponta")).length },
+    { id: "jaracaty", label: "Jaracaty", count: properties.filter((property) => property.location.toLowerCase().includes("jaracaty")).length },
+    { id: "saofrancisco", label: "São Francisco", count: properties.filter((property) => property.location.toLowerCase().includes("são francisco") || property.location.toLowerCase().includes("sao francisco")).length },
+    { id: "centrohistorico", label: "Centro Histórico", count: properties.filter((property) => property.location.toLowerCase().includes("centro histórico") || property.location.toLowerCase().includes("centro historico")).length },
   ];
 
-  const toggleSelection = (array: string[], setArray: React.Dispatch<React.SetStateAction<string[]>>, id: string) => {
+  const toggleSelection = (array: string[], setArray: Dispatch<SetStateAction<string[]>>, id: string) => {
     setArray(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
@@ -57,8 +61,102 @@ export default function Results() {
     selectedLocations.length +
     (priceRange[0] !== 0 || priceRange[1] !== 10000 ? 1 : 0) +
     (sizeRange[0] !== 0 || sizeRange[1] !== 500 ? 1 : 0) +
+    (capacityRange[0] !== 1 || capacityRange[1] !== 50 ? 1 : 0) +
     (availability !== "all" ? 1 : 0) +
     (contractType !== "all" ? 1 : 0);
+
+  const availabilityMap: Record<string, string> = {
+    "1": "immediate",
+    "2": "15days",
+    "3": "30days",
+    "4": "immediate",
+    "5": "15days",
+    "6": "immediate",
+    "7": "30days",
+    "8": "immediate",
+  };
+
+  const contractTypeMap: Record<string, string> = {
+    "1": "flexible",
+    "2": "6months",
+    "3": "12months",
+    "4": "flexible",
+    "5": "24months",
+    "6": "flexible",
+    "7": "12months",
+    "8": "6months",
+  };
+
+  const amenityKeywords: Record<string, string[]> = {
+    wifi: ["wi-fi", "internet"],
+    parking: ["estacionamento", "vagas", "portaria"],
+    furnished: ["mobiliado", "mobiliado de luxo"],
+    security: ["segurança", "cftv", "portaria", "concierge"],
+    ac: ["ar condicionado", "ambiente climatizado"],
+    kitchen: ["copa", "cozinha"],
+  };
+
+  const typeMap: Record<string, string> = {
+    escritorio: "Escritório",
+    coworking: "Coworking",
+    sala: "Sala Comercial",
+    loja: "Loja",
+  };
+
+  const locationMap: Record<string, string[]> = {
+    centro: ["centro"],
+    renascenca: ["renasc"],
+    cohama: ["cohama"],
+    calhau: ["calhau"],
+    ponta: ["ponta"],
+    jaracaty: ["jaracaty"],
+    saofrancisco: ["são francisco", "sao francisco"],
+    centrohistorico: ["centro histórico", "centro historico"],
+  };
+
+  const filteredProperties = properties.filter((property) => {
+    const normalizedTitle = property.type.toLowerCase();
+    const normalizedLocation = property.location.toLowerCase();
+    const normalizedFeatures = property.features.join(" ").toLowerCase();
+    const normalizedPrice = property.price;
+    const normalizedSize = property.size;
+    const normalizedCapacity = property.capacity;
+    const propAvailability = availabilityMap[property.id] ?? "immediate";
+    const propContract = contractTypeMap[property.id] ?? "flexible";
+
+    const matchesType = selectedTypes.length === 0 || selectedTypes.some((typeId) => normalizedTitle.includes(typeMap[typeId]?.toLowerCase() ?? typeId));
+    const matchesAmenities = selectedAmenities.length === 0 || selectedAmenities.every((amenityId) =>
+      amenityKeywords[amenityId]?.some((keyword) => normalizedFeatures.includes(keyword))
+    );
+    const matchesLocation = selectedLocations.length === 0 || selectedLocations.some((locationId) =>
+      locationMap[locationId]?.some((keyword) => normalizedLocation.includes(keyword))
+    );
+    const matchesPrice = normalizedPrice >= priceRange[0] && normalizedPrice <= priceRange[1];
+    const matchesSize = normalizedSize >= sizeRange[0] && normalizedSize <= sizeRange[1];
+    const matchesCapacity = normalizedCapacity >= capacityRange[0] && normalizedCapacity <= capacityRange[1];
+    const matchesAvailability = availability === "all" || propAvailability === availability;
+    const matchesContract = contractType === "all" || propContract === contractType;
+
+    return (
+      matchesType &&
+      matchesAmenities &&
+      matchesLocation &&
+      matchesPrice &&
+      matchesSize &&
+      matchesCapacity &&
+      matchesAvailability &&
+      matchesContract
+    );
+  });
+
+  const sortedProperties = [...filteredProperties].sort((a, b) => {
+    if (sortBy === "price-asc") return a.price - b.price;
+    if (sortBy === "price-desc") return b.price - a.price;
+    if (sortBy === "size-desc") return b.size - a.size;
+    if (sortBy === "rating-desc") return b.rating - a.rating;
+    if (sortBy === "newest") return Number(b.id) - Number(a.id);
+    return a.id.localeCompare(b.id);
+  });
 
   const clearAllFilters = () => {
     setSelectedTypes([]);
@@ -462,9 +560,16 @@ export default function Results() {
 
           {/* Results Area */}
           <div className="flex-1 min-w-0">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm text-slate-500">{sortedProperties.length} espaço(s) encontrados</p>
+                <h2 className="text-2xl font-semibold text-[#0F172A]">Resultados</h2>
+              </div>
+            </div>
+
             {viewMode === "grid" && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {properties.map((property, index) => (
+                {sortedProperties.map((property, index) => (
                   <motion.div
                     key={property.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -489,7 +594,7 @@ export default function Results() {
 
             {viewMode === "list" && (
               <div className="space-y-4">
-                {properties.map((property, index) => (
+                {sortedProperties.map((property, index) => (
                   <motion.div
                     key={property.id}
                     initial={{ opacity: 0, x: -20 }}

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Send, Mic, Calendar, MapPin, DollarSign, Building2, Users, TrendingUp, Clock, Zap, CheckCircle2, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router";
+import { properties } from "../data/properties";
 
 interface Message {
   id: string;
@@ -9,7 +10,15 @@ interface Message {
   content: string;
   timestamp: Date;
   suggestions?: string[];
-  properties?: any[];
+  results?: PropertyResult[];
+}
+
+interface PropertyResult {
+  id: string;
+  title: string;
+  type: string;
+  location: string;
+  price: number;
 }
 
 export function AIAgent() {
@@ -46,80 +55,120 @@ export function AIAgent() {
   const analyzeMessage = (userMessage: string): Message => {
     const lowerMessage = userMessage.toLowerCase();
     
-    // Detecção de intenção
     const intentions = {
-      search: ["procuro", "preciso", "quero", "busco", "encontrar"],
-      price: ["preço", "valor", "custo", "r$", "reais", "orçamento"],
-      location: ["onde", "localização", "endereço", "região", "bairro", "centro"],
+      search: ["procuro", "preciso", "quero", "busco", "encontrar", "mostrar", "ver"],
+      price: ["preço", "valor", "custo", "r$", "reais", "orçamento", "até"],
+      location: ["onde", "localização", "endereço", "região", "bairro", "centro", "renascença", "cohama", "jaracaty", "ponta", "são luís", "são luis"],
       size: ["tamanho", "área", "m²", "metros", "grande", "pequeno"],
       type: ["escritório", "coworking", "sala", "loja", "comercial"],
       amenities: ["mobiliado", "wifi", "estacionamento", "ar condicionado"],
-      schedule: ["visita", "agendar", "conhecer", "ver"],
+      schedule: ["visita", "agendar", "conhecer", "ver", "agenda"],
       help: ["ajuda", "como", "funciona", "dúvida"]
     };
 
-    // Análise inteligente
+    const parseBudget = () => {
+      const match = lowerMessage.match(/\d+[.,]?\d*/g);
+      if (!match) return null;
+      const value = Number(match[0].replace(/\./g, "").replace(",", "."));
+      return Number.isFinite(value) ? value : null;
+    };
+
+    const parseCapacity = () => {
+      const match = lowerMessage.match(/(\d+)\s*(pessoas|pesssoas|pessoas|pessoas)/);
+      return match ? Number(match[1]) : null;
+    };
+
+    const findType = () => intentions.type.find(word => lowerMessage.includes(word));
+
+    const findLocation = () => {
+      const locationWords = ["centro", "renascença", "cohama", "jaracaty", "ponta", "são luís", "são luis"];
+      return locationWords.find(word => lowerMessage.includes(word));
+    };
+
+    const budget = parseBudget();
+    const capacity = parseCapacity();
+    const selectedType = findType();
+    const selectedLocation = findLocation();
+
+    const filterProperties = properties.filter((property) => {
+      const matchesType = selectedType ? property.type.toLowerCase().includes(selectedType) : true;
+      const matchesLocation = selectedLocation ? property.location.toLowerCase().includes(selectedLocation) : true;
+      const matchesBudget = budget ? property.price <= budget : true;
+      const matchesCapacity = capacity ? property.capacity >= capacity : true;
+      return matchesType && matchesLocation && matchesBudget && matchesCapacity;
+    });
+
+    const results = filterProperties.slice(0, 4).map((property) => ({
+      id: property.id,
+      title: property.title,
+      type: property.type,
+      location: property.location,
+      price: property.price,
+    }));
+
+    const isSearchQuery = intentions.search.some(word => lowerMessage.includes(word)) || intentions.type.some(word => lowerMessage.includes(word));
+    const needsSearch = isSearchQuery || lowerMessage.includes("mostrar") || lowerMessage.includes("ver");
+
     let responseContent = "";
     let suggestions: string[] = [];
-    
-    if (intentions.search.some(word => lowerMessage.includes(word))) {
-      if (intentions.type.some(word => lowerMessage.includes(word))) {
-        const type = intentions.type.find(word => lowerMessage.includes(word));
-        responseContent = `✨ Perfeito! Encontrei várias opções de ${type} para você. Posso te ajudar a refinar a busca:\n\n📍 Em qual região você prefere?\n💰 Qual é seu orçamento mensal?\n👥 Quantas pessoas vão utilizar o espaço?\n\nVou te mostrar algumas opções que já temos disponíveis!`;
-        suggestions = [
-          "Mostrar todos disponíveis",
-          "Região central, até R$5000",
-          "Para 5-10 pessoas",
-          "Com estacionamento"
-        ];
-      } else {
-        responseContent = `Vou te ajudar a encontrar o espaço ideal! Para isso, preciso entender melhor o que você procura:\n\n🏢 Que tipo de espaço? (Escritório, Coworking, Sala Comercial, Loja)\n📍 Qual região preferida?\n💰 Qual seu orçamento?\n👥 Para quantas pessoas?`;
-        suggestions = [
-          "Escritório no centro",
-          "Coworking mobiliado",
-          "Sala até R$3000",
-          "Ver todas as opções"
-        ];
-      }
-    } else if (intentions.price.some(word => lowerMessage.includes(word))) {
-      responseContent = `💰 Entendi! Vamos falar de valores. A São Paulo Participações oferece opções diversas:\n\n• Econômico: R$ 1.500 - R$ 3.000/mês\n• Padrão: R$ 3.000 - R$ 5.000/mês\n• Premium: R$ 5.000 - R$ 10.000/mês\n• Executivo: Acima de R$ 10.000/mês\n\nQual faixa se encaixa melhor para você?`;
+    let responseResults: PropertyResult[] | undefined;
+
+    if (needsSearch && results.length > 0) {
+      responseContent = `Encontrei ${filterProperties.length} opção(ões) que podem ser interessantes para você. Veja abaixo algumas sugestões de imóveis com base na sua busca.`;
+      responseResults = results;
       suggestions = [
-        "Até R$3.000",
-        "Entre R$3.000 e R$5.000",
-        "Acima de R$5.000",
-        "Preciso de proposta customizada"
+        "Mostrar mais resultados",
+        "Agendar visita",
+        "Ver opções para 4 pessoas",
+        "Filtrar por preço"
       ];
-    } else if (intentions.location.some(word => lowerMessage.includes(word))) {
-      responseContent = `📍 Temos imóveis em localização privilegiada em São Paulo:\n\n🏛️ **Centro**: Próximo à Av. Paulista e região\n🌆 **Zona Sul**: Itaim, Vila Olímpia, Brooklin\n🏙️ **Zona Oeste**: Pinheiros, Vila Madalena\n🌃 **Zona Leste**: Tatuapé, Mooca\n\nQual região você prefere?`;
+    } else if (needsSearch && results.length === 0 && (selectedType || selectedLocation || budget || capacity)) {
+      responseContent = `Ainda não encontrei imóveis que batem com esses critérios exatos. Posso ampliar a busca? Tente usar outras regiões ou aumentar o orçamento.`;
       suggestions = [
-        "Centro/Paulista",
-        "Zona Sul",
-        "Zona Oeste",
-        "Mostrar todas"
+        "Ver opções sem filtro de preço",
+        "Mostrar todas as salas",
+        "Buscar apenas coworking",
+        "Agendar uma visita"
       ];
     } else if (intentions.schedule.some(word => lowerMessage.includes(word))) {
-      responseContent = `📅 Que ótimo! Vamos agendar sua visita.\n\nNossa equipe está disponível:\n⏰ Segunda a Sexta: 9h às 18h\n⏰ Sábados: 9h às 13h\n\n🚀 Visita Virtual: Disponível a qualquer momento\n🏢 Visita Presencial: Agendamento com 24h de antecedência\n\nQue dia seria ideal para você?`;
+      responseContent = `📅 Certo! Posso ajudar a agendar sua visita. Para isso, diga quando você gostaria de visitar o imóvel e qual horário funciona melhor para você.`;
       suggestions = [
-        "Hoje ainda",
-        "Amanhã pela manhã",
-        "Próxima semana",
-        "Visita virtual agora"
+        "Amanhã às 09:00",
+        "Sexta às 14:00",
+        "Agendamento presencial",
+        "Agendamento virtual"
+      ];
+    } else if (intentions.price.some(word => lowerMessage.includes(word))) {
+      responseContent = `💰 Entendi! A São Paulo Participações oferece opções em diferentes faixas de preço. Você pode me dizer um valor máximo e eu busco imóveis que cabem no seu orçamento.`;
+      suggestions = [
+        "Até R$3000",
+        "Entre R$3000 e R$5000",
+        "Acima de R$5000",
+        "Mostre opções econômicas"
+      ];
+    } else if (intentions.location.some(word => lowerMessage.includes(word))) {
+      responseContent = `📍 Temos imóveis em locais estratégicos. Se quiser, posso mostrar opções em Centro, Renascença, Cohama ou Jaracaty.`;
+      suggestions = [
+        "Centro",
+        "Renascença",
+        "Cohama",
+        "Jaracaty"
       ];
     } else if (intentions.help.some(word => lowerMessage.includes(word))) {
-      responseContent = `📚 Aqui está como funciona nosso processo:\n\n1️⃣ **Busca Inteligente**: Conte o que precisa (pode ser em linguagem natural!)\n2️⃣ **Filtros Avançados**: Refine por preço, localização, tamanho, etc.\n3️⃣ **Visita**: Virtual ou presencial\n4️⃣ **Reserva**: Instantânea ou com aprovação\n5️⃣ **Contrato Digital**: Tudo online e seguro\n6️⃣ **Suporte 24/7**: Estamos sempre disponíveis\n\nSobre o que você gostaria de saber mais?`;
-      suggestions = [
-        "Como funciona o pagamento?",
-        "Posso cancelar depois?",
-        "Tem período mínimo?",
-        "Quero começar a busca"
-      ];
-    } else {
-      responseContent = `Entendi sua mensagem! Para te ajudar melhor, posso:\n\n🔍 Buscar imóveis específicos\n💡 Dar sugestões baseadas no seu perfil\n📊 Explicar nossos serviços\n📞 Conectar você com um especialista\n\nO que você prefere?`;
+      responseContent = `📚 Estou aqui para ajudar. Você pode me pedir para buscar imóveis por tipo, preço, região ou número de pessoas. Também posso agendar visitas e explicar o processo.`;
       suggestions = [
         "Buscar imóveis",
-        "Ver sugestões",
-        "Falar com especialista",
-        "Conhecer a empresa"
+        "Agendar visita",
+        "Como funciona o aluguel?",
+        "Mostrar imóveis para 5 pessoas"
+      ];
+    } else {
+      responseContent = `Posso te ajudar a encontrar imóveis comerciais, buscar por orçamento, região ou tamanho. Experimente dizer algo como:\n\n- "Quero uma sala comercial até R$3000"\n- "Procuro coworking mobiliado no centro"\n- "Agendar visita"`;
+      suggestions = [
+        "Quero uma sala comercial até R$3000",
+        "Procuro coworking no centro",
+        "Agendar visita",
+        "Mostre opções disponíveis"
       ];
     }
 
@@ -128,7 +177,8 @@ export function AIAgent() {
       type: "agent",
       content: responseContent,
       timestamp: new Date(),
-      suggestions
+      suggestions,
+      results: responseResults
     };
   };
 
@@ -285,6 +335,30 @@ export function AIAgent() {
                     </div>
                     
                     {/* Suggestions */}
+                    {message.results && message.results.length > 0 && (
+                      <div className="mt-3 space-y-3">
+                        {message.results.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => navigate(`/imovel/${item.id}`)}
+                            className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-left shadow-sm hover:border-blue-300 hover:bg-blue-50 transition"
+                          >
+                            <div className="flex items-center justify-between gap-4">
+                              <div>
+                                <p className="text-sm text-slate-500">{item.type}</p>
+                                <p className="font-semibold text-[#0F172A]">{item.title}</p>
+                                <p className="text-xs text-slate-500 mt-1">{item.location}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-semibold text-[#0F172A]">R$ {item.price.toLocaleString('pt-BR')}</p>
+                                <p className="text-xs text-slate-500">Ver detalhes</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {message.suggestions && message.suggestions.length > 0 && (
                       <div className="mt-3 space-y-2">
                         {message.suggestions.map((suggestion, idx) => (
