@@ -21,15 +21,16 @@ import {
 import { Header } from "../components/Header";
 import { AIAgent } from "../components/AIAgent";
 import { Footer } from "../components/Footer";
-import { properties } from "../data/properties";
 import { useParams, Link } from "react-router";
 import { useState } from "react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion } from "motion/react";
 import { ScheduleVisitModal } from "../components/common/ScheduleVisitModal";
+import { useProperties } from "../../data/properties";
 
 export default function PropertyDetail() {
   const { id } = useParams();
+  const properties = useProperties();
   const property = properties.find(p => p.id === id);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);

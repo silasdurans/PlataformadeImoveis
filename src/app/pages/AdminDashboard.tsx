@@ -34,6 +34,7 @@ import {
   addProperty, 
   updateProperty, 
   deleteProperty, 
+  renderizarImoveis,
   type Property 
 } from "../../data/properties";
 import {
@@ -67,11 +68,12 @@ export default function AdminDashboard() {
     description: '',
     price: 0,
     location: '',
+    image: '',
     bedrooms: 0,
     bathrooms: 0,
     area: 0,
     images: [''],
-    type: 'apartamento' as Property['type'],
+    type: 'Escritório' as Property['type'],
     status: 'disponivel' as Property['status']
   });
 
@@ -138,6 +140,15 @@ export default function AdminDashboard() {
     // Carregar propriedades
     loadProperties();
   }, [navigate]);
+
+  useEffect(() => {
+    const syncProperties = () => {
+      setProperties(renderizarImoveis());
+    };
+
+    window.addEventListener("grupo-sp-properties:updated", syncProperties);
+    return () => window.removeEventListener("grupo-sp-properties:updated", syncProperties);
+  }, []);
 
   const loadProperties = async () => {
     try {
@@ -244,11 +255,12 @@ export default function AdminDashboard() {
       description: '',
       price: 0,
       location: '',
+      image: '',
       bedrooms: 0,
       bathrooms: 0,
       area: 0,
       images: [''],
-      type: 'apartamento',
+      type: 'Escritório',
       status: 'disponivel'
     });
     setShowPropertyModal(true);
@@ -261,6 +273,7 @@ export default function AdminDashboard() {
       description: property.description,
       price: property.price,
       location: property.location,
+      image: property.image,
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
       area: property.area,
@@ -271,7 +284,7 @@ export default function AdminDashboard() {
     setShowPropertyModal(true);
   };
 
-  const handleDeleteProperty = async (id: number) => {
+  const handleDeleteProperty = async (id: string) => {
     if (confirm('Tem certeza que deseja deletar este imóvel?')) {
       try {
         await deleteProperty(id);
@@ -284,11 +297,37 @@ export default function AdminDashboard() {
   };
 
   const handleSaveProperty = async () => {
+    if (
+      !propertyForm.title.trim() ||
+      !propertyForm.description.trim() ||
+      !propertyForm.location.trim() ||
+      !propertyForm.image.trim() ||
+      propertyForm.price <= 0
+    ) {
+      alert('Preencha titulo, descricao, preco, localizacao e imagem do imovel.');
+      return;
+    }
+
+    const payload = {
+      ...propertyForm,
+      image: propertyForm.image,
+      images: [propertyForm.image],
+      area: propertyForm.area || 60,
+      bedrooms: propertyForm.bedrooms || 2,
+      bathrooms: propertyForm.bathrooms || 1,
+      size: propertyForm.area || 60,
+      capacity: Math.max(2, propertyForm.bedrooms * 2 || 4),
+      rating: editingProperty?.rating ?? 4.8,
+      features: editingProperty?.features ?? ["Cadastro via painel administrativo"],
+      lat: editingProperty?.lat ?? -2.5297,
+      lng: editingProperty?.lng ?? -44.3028,
+    };
+
     try {
       if (editingProperty) {
-        await updateProperty(editingProperty.id!, propertyForm);
+        await updateProperty(editingProperty.id, payload);
       } else {
-        await addProperty(propertyForm);
+        await addProperty(payload);
       }
       setShowPropertyModal(false);
       await loadProperties();
@@ -298,19 +337,8 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleImageChange = (index: number, value: string) => {
-    const newImages = [...propertyForm.images];
-    newImages[index] = value;
-    setPropertyForm({ ...propertyForm, images: newImages });
-  };
-
-  const addImageField = () => {
-    setPropertyForm({ ...propertyForm, images: [...propertyForm.images, ''] });
-  };
-
-  const removeImageField = (index: number) => {
-    const newImages = propertyForm.images.filter((_, i) => i !== index);
-    setPropertyForm({ ...propertyForm, images: newImages });
+  const handleImageChange = (value: string) => {
+    setPropertyForm({ ...propertyForm, image: value, images: [value] });
   };
 
   const handleAddSchedule = () => {
@@ -1256,9 +1284,10 @@ export default function AdminDashboard() {
                     onChange={(e) => setPropertyForm({ ...propertyForm, type: e.target.value as Property['type'] })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="apartamento">Apartamento</option>
-                    <option value="casa">Casa</option>
-                    <option value="terreno">Terreno</option>
+                    <option value="Escritório">Escritório</option>
+                    <option value="Coworking">Coworking</option>
+                    <option value="Sala Comercial">Sala Comercial</option>
+                    <option value="Loja">Loja</option>
                   </select>
                 </div>
 
@@ -1320,37 +1349,17 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-slate-700">Imagens</label>
-                  <button
-                    onClick={addImageField}
-                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                  >
-                    <Plus className="size-4" />
-                    Adicionar imagem
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {propertyForm.images.map((image, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={image}
-                        onChange={(e) => handleImageChange(index, e.target.value)}
-                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="URL da imagem"
-                      />
-                      {propertyForm.images.length > 1 && (
-                        <button
-                          onClick={() => removeImageField(index)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <CloseIcon className="size-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Imagem do imóvel</label>
+                <input
+                  type="text"
+                  value={propertyForm.image}
+                  onChange={(e) => handleImageChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="URL da imagem principal"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  Esta imagem sera usada automaticamente na listagem principal do site.
+                </p>
               </div>
             </div>
 

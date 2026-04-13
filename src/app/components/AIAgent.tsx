@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Send, Mic, Calendar, MapPin, DollarSign, Building2, Users, TrendingUp, Clock, Zap, CheckCircle2, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router";
-import { properties } from "../data/properties";
+import { useProperties } from "../../data/properties";
 
 interface Message {
   id: string;
@@ -22,6 +22,7 @@ interface PropertyResult {
 }
 
 export function AIAgent() {
+  const properties = useProperties();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {

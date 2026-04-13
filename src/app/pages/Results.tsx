@@ -3,11 +3,12 @@ import { Header } from "../components/Header";
 import { AIAgent } from "../components/AIAgent";
 import { Footer } from "../components/Footer";
 import { PropertyCard } from "../components/PropertyCard";
-import { properties } from "../data/properties";
 import { useState, Dispatch, SetStateAction } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useProperties } from "../../data/properties";
 
 export default function Results() {
+  const properties = useProperties();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [showFilters, setShowFilters] = useState(true);
   const [sortBy, setSortBy] = useState("recommended");

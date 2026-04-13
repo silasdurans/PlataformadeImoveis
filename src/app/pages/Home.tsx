@@ -4,14 +4,16 @@ import { Footer } from "../components/layout/Footer";
 import { AIAgent } from "../components/AIAgent";
 import { PropertyCard } from "../components/common/PropertyCard";
 import { InstitutionalBanner } from "../components/common/InstitutionalBanner";
-import { properties } from "../data/properties";
+import { useProperties } from "../../data/properties";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import { motion } from "motion/react";
 import heroBackground from "../../assets/0fa28a804d596717eca062a20b6d2ca8d1630f0a.png";
 
 export default function Home() {
   const navigate = useNavigate();
+  const properties = useProperties();
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showChatbot, setShowChatbot] = useState(false);
@@ -199,6 +201,68 @@ export default function Home() {
               />
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      <section className="py-20 bg-slate-50/80 border-y border-slate-200">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between gap-4 mb-10 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-1 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full" />
+                <span className="text-sm text-slate-500 uppercase tracking-wider">Listagem Dinamica</span>
+              </div>
+              <h2 className="text-4xl text-[#0F172A] mb-2">Imoveis cadastrados no painel</h2>
+              <p className="text-slate-500">
+                Novos cadastros sao exibidos automaticamente aqui e permanecem salvos mesmo apos recarregar.
+              </p>
+            </div>
+            <div className="px-4 py-2 rounded-full bg-white border border-slate-200 text-sm text-slate-600 shadow-sm">
+              {properties.length} imoveis em exibicao
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {properties.map((property, index) => (
+              <motion.div
+                key={property.id}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, delay: Math.min(index * 0.05, 0.3) }}
+                className="h-full"
+              >
+                <Link
+                  to={`/imovel/${property.id}`}
+                  className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+                >
+                  <div className="aspect-[16/10] overflow-hidden bg-slate-100">
+                    <img
+                      src={property.image}
+                      alt={property.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="text-sm text-cyan-700 mb-3">{property.type}</div>
+                    <h3 className="text-2xl text-[#0F172A] mb-3 line-clamp-2">{property.title}</h3>
+                    <p className="text-slate-600 mb-4 line-clamp-3">{property.description}</p>
+                    <div className="mt-auto space-y-2 text-sm text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="size-4 text-blue-600" />
+                        <span>{property.location}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="size-4 text-green-600" />
+                        <span className="font-semibold text-[#0F172A]">
+                          R$ {property.price.toLocaleString("pt-BR")}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
