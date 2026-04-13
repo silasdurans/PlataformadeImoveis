@@ -11,6 +11,8 @@ import {
   DialogClose,
 } from "../ui/dialog";
 import { motion } from "motion/react";
+import { useNavigate } from "react-router";
+import { addSchedule, getSchedules } from "../../../data/schedules";
 
 const HOURS = ["09:00", "11:00", "14:00", "16:00"];
 
@@ -45,6 +47,7 @@ interface ScheduleVisitModalProps {
 }
 
 export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
+  const navigate = useNavigate();
   const today = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -55,11 +58,24 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
 
   const monthDays = useMemo(() => getMonthDays(currentMonth), [currentMonth]);
 
   const selectedDateKey = selectedDate ? formatDateKey(selectedDate) : "";
-  const bookedTimes = selectedDateKey ? simulatedBookings[selectedDateKey] ?? [] : [];
+  const bookedTimes = selectedDateKey
+    ? [
+        ...(simulatedBookings[selectedDateKey] ?? []),
+        ...getSchedules()
+          .filter(
+            (schedule) =>
+              schedule.propertyTitle === propertyTitle &&
+              schedule.date === selectedDateKey &&
+              schedule.status !== "cancelado",
+          )
+          .map((schedule) => schedule.time),
+      ]
+    : [];
   const availableTimes = HOURS.filter((hour) => !bookedTimes.includes(hour));
 
   const isDateDisabled = (date: Date) => {
@@ -81,7 +97,37 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
 
   const handleConfirm = () => {
     if (!selectedDate || !selectedTime) return;
-    setConfirmed(true);
+
+    const sessionRaw = localStorage.getItem("grupo-sp-client-session");
+    if (!sessionRaw) {
+      setFeedbackMessage("Faça login como cliente para concluir o agendamento.");
+      setConfirmed(false);
+      setTimeout(() => navigate("/cliente/login"), 900);
+      return;
+    }
+
+    try {
+      const session = JSON.parse(sessionRaw) as { id: string; name: string; email: string };
+
+      addSchedule({
+        propertyTitle,
+        clientName: session.name,
+        clientEmail: session.email,
+        clientId: session.id,
+        date: selectedDateKey,
+        time: selectedTime,
+        status: "agendado",
+        notes: `Agendamento criado pelo cliente ${session.name}.`,
+      });
+
+      setFeedbackMessage(
+        `Os dados de ${session.name} e o agendamento foram enviados para a agenda do painel administrativo.`,
+      );
+      setConfirmed(true);
+    } catch {
+      setFeedbackMessage("Não foi possível validar a sessão do cliente. Faça login novamente.");
+      setConfirmed(false);
+    }
   };
 
   const displayDate = selectedDate
@@ -227,6 +273,10 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
               <h3 className="text-lg font-semibold text-[#0F172A] mb-3">Resumo</h3>
               <div className="space-y-2 text-sm text-slate-600">
                 <div className="flex items-center justify-between">
+                  <span>Imóvel</span>
+                  <span className="font-semibold text-[#0F172A] text-right max-w-[180px]">{propertyTitle}</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span>Data</span>
                   <span className="font-semibold text-[#0F172A]">{displayDate}</span>
                 </div>
@@ -270,9 +320,19 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
                 <p className="mt-1 text-sm text-emerald-900/90">
                   Você agendou sua visita para <strong>{displayDate}</strong> às <strong>{selectedTime}</strong>.
                 </p>
-                <p className="mt-2 text-sm text-slate-600">Em breve um representante entrará em contato para confirmar os detalhes.</p>
+                <p className="mt-2 text-sm text-slate-600">{feedbackMessage || "Em breve um representante entrará em contato para confirmar os detalhes."}</p>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {!confirmed && feedbackMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            {feedbackMessage}
           </motion.div>
         )}
       </DialogContent>

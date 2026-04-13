@@ -4,6 +4,7 @@ import Results from "./pages/Results";
 import PropertyDetail from "./pages/PropertyDetail";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import ClientAuth from "./pages/ClientAuth";
 
 export const router = createBrowserRouter([
   {
@@ -17,6 +18,10 @@ export const router = createBrowserRouter([
   {
     path: "/imovel/:id",
     Component: PropertyDetail,
+  },
+  {
+    path: "/cliente/login",
+    Component: ClientAuth,
   },
   {
     path: "/admin/login",

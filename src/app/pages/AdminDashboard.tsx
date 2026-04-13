@@ -38,6 +38,14 @@ import {
   type Property 
 } from "../../data/properties";
 import {
+  useSchedules,
+  addSchedule as createSchedule,
+  updateSchedule as persistScheduleUpdate,
+  deleteSchedule as removeSchedule,
+  type ScheduleItem,
+  type ScheduleStatus,
+} from "../../data/schedules";
+import {
   BarChart,
   Bar,
   XAxis,
@@ -57,6 +65,7 @@ import {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const schedules = useSchedules();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [properties, setProperties] = useState<Property[]>([]);
@@ -77,57 +86,18 @@ export default function AdminDashboard() {
     status: 'disponivel' as Property['status']
   });
 
-  type ScheduleStatus = 'agendado' | 'confirmado' | 'cancelado';
-
-  interface ScheduleItem {
-    id: number;
-    propertyTitle: string;
-    clientName: string;
-    date: string;
-    time: string;
-    status: ScheduleStatus;
-    notes?: string;
-  }
-
-  const [schedules, setSchedules] = useState<ScheduleItem[]>([
-    {
-      id: 1,
-      propertyTitle: 'Apartamento Luxuoso no Centro',
-      clientName: 'Ana Clara',
-      date: '2026-04-15',
-      time: '10:30',
-      status: 'agendado',
-      notes: 'Verificar disponibilidade de mobília'
-    },
-    {
-      id: 2,
-      propertyTitle: 'Casa com Jardim',
-      clientName: 'Ricardo Silva',
-      date: '2026-04-17',
-      time: '14:00',
-      status: 'confirmado',
-      notes: 'Solicitar visita com corretor'
-    },
-    {
-      id: 3,
-      propertyTitle: 'Terreno para Construção',
-      clientName: 'Mariana Souza',
-      date: '2026-04-19',
-      time: '09:00',
-      status: 'cancelado',
-      notes: 'Reagendar após envio de documentação'
-    }
-  ]);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<ScheduleItem | null>(null);
   const [scheduleForm, setScheduleForm] = useState<ScheduleItem>({
     id: 0,
     propertyTitle: '',
     clientName: '',
+    clientEmail: '',
     date: '',
     time: '',
     status: 'agendado',
-    notes: ''
+    notes: '',
+    createdAt: ''
   });
 
   useEffect(() => {
@@ -344,13 +314,15 @@ export default function AdminDashboard() {
   const handleAddSchedule = () => {
     setEditingSchedule(null);
     setScheduleForm({
-      id: schedules.length + 1,
+      id: 0,
       propertyTitle: '',
       clientName: '',
+      clientEmail: '',
       date: '',
       time: '',
       status: 'agendado',
-      notes: ''
+      notes: '',
+      createdAt: ''
     });
     setShowScheduleModal(true);
   };
@@ -363,15 +335,35 @@ export default function AdminDashboard() {
 
   const handleDeleteSchedule = (id: number) => {
     if (confirm('Deseja excluir este agendamento?')) {
-      setSchedules((prev) => prev.filter((item) => item.id !== id));
+      removeSchedule(id);
     }
   };
 
   const handleSaveSchedule = () => {
+    if (
+      !scheduleForm.propertyTitle.trim() ||
+      !scheduleForm.clientName.trim() ||
+      !scheduleForm.clientEmail.trim() ||
+      !scheduleForm.date ||
+      !scheduleForm.time
+    ) {
+      alert('Preencha imóvel, nome do cliente, e-mail, data e horário.');
+      return;
+    }
+
     if (editingSchedule) {
-      setSchedules((prev) => prev.map((item) => item.id === editingSchedule.id ? scheduleForm : item));
+      persistScheduleUpdate(editingSchedule.id, scheduleForm);
     } else {
-      setSchedules((prev) => [...prev, scheduleForm]);
+      createSchedule({
+        propertyTitle: scheduleForm.propertyTitle,
+        clientName: scheduleForm.clientName,
+        clientEmail: scheduleForm.clientEmail,
+        clientId: scheduleForm.clientId,
+        date: scheduleForm.date,
+        time: scheduleForm.time,
+        status: scheduleForm.status,
+        notes: scheduleForm.notes,
+      });
     }
     setShowScheduleModal(false);
   };
@@ -1162,7 +1154,10 @@ export default function AdminDashboard() {
                       {schedules.map((schedule) => (
                         <tr key={schedule.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
                           <td className="py-4 px-4 font-medium text-[#0F172A]">{schedule.propertyTitle}</td>
-                          <td className="py-4 px-4 text-slate-600">{schedule.clientName}</td>
+                          <td className="py-4 px-4 text-slate-600">
+                            <div className="font-medium text-[#0F172A]">{schedule.clientName}</div>
+                            <div className="text-xs text-slate-500">{schedule.clientEmail}</div>
+                          </td>
                           <td className="py-4 px-4 text-slate-600">{schedule.date}</td>
                           <td className="py-4 px-4 text-slate-600">{schedule.time}</td>
                           <td className="py-4 px-4">
@@ -1424,6 +1419,17 @@ export default function AdminDashboard() {
                     onChange={(e) => setScheduleForm({ ...scheduleForm, clientName: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Nome do cliente"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">E-mail do cliente</label>
+                  <input
+                    type="email"
+                    value={scheduleForm.clientEmail}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, clientEmail: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="cliente@email.com"
                   />
                 </div>
 

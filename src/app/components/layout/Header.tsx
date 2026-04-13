@@ -68,14 +68,16 @@ export function Header() {
           </Link>
         </nav>
         
-        <motion.button 
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 px-6 py-2.5 bg-[#0F172A] text-white rounded-xl hover:bg-[#1E293B] hover:shadow-lg transition-all"
-        >
-          <User className="size-4" />
-          <span>Entrar</span>
-        </motion.button>
+        <Link to="/cliente/login">
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-2 px-6 py-2.5 bg-[#0F172A] text-white rounded-xl hover:bg-[#1E293B] hover:shadow-lg transition-all"
+          >
+            <User className="size-4" />
+            <span>Entrar</span>
+          </motion.button>
+        </Link>
 
         {/* Mobile menu button */}
         <button className="md:hidden p-2">
