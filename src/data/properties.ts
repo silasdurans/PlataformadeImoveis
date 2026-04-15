@@ -131,7 +131,16 @@ const apiRequest = async <T>(path: string, init?: RequestInit): Promise<T> => {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Erro ao acessar ${path}`);
+    let message = text || `Erro ao acessar ${path}`;
+
+    try {
+      const parsed = JSON.parse(text);
+      message = parsed.error || parsed.message || message;
+    } catch {
+      // Keep original text when response is not JSON.
+    }
+
+    throw new Error(message);
   }
 
   return (await response.json()) as T;
@@ -165,56 +174,32 @@ export const getPropertyById = async (id: string): Promise<Property | undefined>
 
 export const addProperty = async (property: Omit<Property, "id" | "created_at" | "updated_at">): Promise<string> => {
   const payload = normalizeProperty(property);
-
-  try {
-    const created = normalizeProperty(
-      await apiRequest<Partial<Property>>("/api/properties", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    );
-    const current = renderizarImoveis().filter((item) => item.id !== created.id);
-    cacheProperties([created, ...current], true);
-    return created.id;
-  } catch {
-    const fallbackCreated = normalizeProperty({ ...payload, id: crypto.randomUUID() });
-    cacheProperties([fallbackCreated, ...renderizarImoveis()], true);
-    return fallbackCreated.id;
-  }
+  const created = normalizeProperty(
+    await apiRequest<Partial<Property>>("/api/properties", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  );
+  const current = renderizarImoveis().filter((item) => item.id !== created.id);
+  cacheProperties([created, ...current], true);
+  return created.id;
 };
 
 export const updateProperty = async (id: string, updates: Partial<Property>): Promise<void> => {
-  try {
-    const updated = normalizeProperty(
-      await apiRequest<Partial<Property>>(`/api/properties/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ ...updates, id }),
-      }),
-    );
-    const next = renderizarImoveis().map((property) => (property.id === id ? updated : property));
-    cacheProperties(next, true);
-  } catch {
-    const updatedProperties = renderizarImoveis().map((property) =>
-      property.id === id
-        ? normalizeProperty({
-            ...property,
-            ...updates,
-            id,
-            updated_at: new Date().toISOString(),
-          })
-        : property,
-    );
-    cacheProperties(updatedProperties, true);
-  }
+  const updated = normalizeProperty(
+    await apiRequest<Partial<Property>>(`/api/properties/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...updates, id }),
+    }),
+  );
+  const next = renderizarImoveis().map((property) => (property.id === id ? updated : property));
+  cacheProperties(next, true);
 };
 
 export const deleteProperty = async (id: string): Promise<void> => {
-  try {
-    await apiRequest(`/api/properties/${id}`, { method: "DELETE" });
-  } finally {
-    const filteredProperties = renderizarImoveis().filter((property) => property.id !== id);
-    cacheProperties(filteredProperties, true);
-  }
+  await apiRequest(`/api/properties/${id}`, { method: "DELETE" });
+  const filteredProperties = renderizarImoveis().filter((property) => property.id !== id);
+  cacheProperties(filteredProperties, true);
 };
 
 export const useProperties = () => {

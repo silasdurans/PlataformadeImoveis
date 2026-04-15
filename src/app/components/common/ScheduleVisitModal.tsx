@@ -12,7 +12,7 @@ import {
 } from "../ui/dialog";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
-import { addSchedule, getSchedules } from "../../../data/schedules";
+import { addSchedule, getSchedules, getAvailableScheduleTimes } from "../../../data/schedules";
 
 const HOURS = ["09:00", "11:00", "14:00", "16:00"];
 
@@ -35,12 +35,6 @@ const getMonthDays = (currentMonth: Date) => {
 };
 
 const weekdayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-
-const simulatedBookings: Record<string, string[]> = {
-  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 2)))]: ["11:00"],
-  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 4)))]: ["14:00", "16:00"],
-  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 7)))]: ["09:00"],
-};
 
 interface ScheduleVisitModalProps {
   propertyTitle: string;
@@ -65,7 +59,6 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
   const selectedDateKey = selectedDate ? formatDateKey(selectedDate) : "";
   const bookedTimes = selectedDateKey
     ? [
-        ...(simulatedBookings[selectedDateKey] ?? []),
         ...getSchedules()
           .filter(
             (schedule) =>
@@ -108,6 +101,13 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
 
     try {
       const session = JSON.parse(sessionRaw) as { id: string; name: string; email: string };
+      const freshAvailableTimes = await getAvailableScheduleTimes(propertyTitle, selectedDateKey);
+
+      if (!freshAvailableTimes.includes(selectedTime)) {
+        setFeedbackMessage("Esse horário acabou de ser reservado. Escolha outro horário disponível.");
+        setConfirmed(false);
+        return;
+      }
 
       await addSchedule({
         propertyTitle,
@@ -124,8 +124,8 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
         `Os dados de ${session.name} e o agendamento foram enviados para a agenda do painel administrativo.`,
       );
       setConfirmed(true);
-    } catch {
-      setFeedbackMessage("Não foi possível validar a sessão do cliente. Faça login novamente.");
+    } catch (error) {
+      setFeedbackMessage(error instanceof Error ? error.message : "Não foi possível concluir o agendamento.");
       setConfirmed(false);
     }
   };

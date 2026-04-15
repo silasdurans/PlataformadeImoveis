@@ -392,6 +392,24 @@ async function insertSchedule(schedule) {
   return { ...normalized, id: result.lastID };
 }
 
+async function findScheduleConflict({ propertyTitle, date, time, excludeId = null }) {
+  const query = `
+    SELECT * FROM schedules
+    WHERE propertyTitle = ?
+      AND date = ?
+      AND time = ?
+      AND status != 'cancelado'
+      ${excludeId !== null ? "AND id != ?" : ""}
+    LIMIT 1
+  `;
+
+  const params = excludeId !== null
+    ? [propertyTitle, date, time, excludeId]
+    : [propertyTitle, date, time];
+
+  return get(query, params);
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -522,6 +540,12 @@ app.post("/api/schedules", async (req, res) => {
       return;
     }
 
+    const conflict = await findScheduleConflict(normalized);
+    if (conflict) {
+      res.status(409).json({ error: "Time slot already booked for this property" });
+      return;
+    }
+
     const created = await insertSchedule(normalized);
     res.status(201).json(created);
   } catch (error) {
@@ -543,6 +567,18 @@ app.put("/api/schedules/:id", async (req, res) => {
       ...req.body,
       id: Number(req.params.id),
     });
+
+    const conflict = await findScheduleConflict({
+      propertyTitle: normalized.propertyTitle,
+      date: normalized.date,
+      time: normalized.time,
+      excludeId: normalized.id,
+    });
+
+    if (conflict) {
+      res.status(409).json({ error: "Time slot already booked for this property" });
+      return;
+    }
 
     await run(
       `

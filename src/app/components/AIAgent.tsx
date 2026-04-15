@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Send, Mic, Calendar, MapPin, DollarSign, Building2, Users, TrendingUp, Clock, Zap, CheckCircle2, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useProperties } from "../../data/properties";
-import { addSchedule, getSchedules } from "../../data/schedules";
+import { addSchedule, getAvailableScheduleTimes } from "../../data/schedules";
 import { getClientSession } from "../lib/clientSession";
 
 interface Message {
@@ -146,19 +146,6 @@ export function AIAgent() {
     };
   };
 
-  const getAvailableTimesForDate = (propertyTitle: string, date: string) => {
-    const bookedTimes = getSchedules()
-      .filter(
-        (schedule) =>
-          schedule.propertyTitle === propertyTitle &&
-          schedule.date === date &&
-          schedule.status !== "cancelado",
-      )
-      .map((schedule) => schedule.time);
-
-    return AVAILABLE_HOURS.filter((hour) => !bookedTimes.includes(hour));
-  };
-
   const findPropertyForScheduling = (text: string) => {
     const normalizedText = normalizeText(text);
 
@@ -193,7 +180,7 @@ export function AIAgent() {
     property: PendingSchedule,
     parsed: NonNullable<ReturnType<typeof parseScheduleRequest>>,
   ) => {
-    const availableTimes = getAvailableTimesForDate(property.propertyTitle, parsed.date);
+    const availableTimes = await getAvailableScheduleTimes(property.propertyTitle, parsed.date);
 
     if (!availableTimes.includes(parsed.time)) {
       appendAgentMessage({
@@ -220,23 +207,31 @@ export function AIAgent() {
       return false;
     }
 
-    await addSchedule({
-      propertyTitle: property.propertyTitle,
-      clientName: session.name,
-      clientEmail: session.email,
-      clientId: session.id,
-      date: parsed.date,
-      time: parsed.time,
-      status: "agendado",
-      notes: `Agendamento criado via chatbot inteligente para ${property.propertyTitle}.`,
-    });
+    try {
+      await addSchedule({
+        propertyTitle: property.propertyTitle,
+        clientName: session.name,
+        clientEmail: session.email,
+        clientId: session.id,
+        date: parsed.date,
+        time: parsed.time,
+        status: "agendado",
+        notes: `Agendamento criado via chatbot inteligente para ${property.propertyTitle}.`,
+      });
 
-    appendAgentMessage({
-      content: `Agendamento realizado com sucesso. Visita marcada para ${property.propertyTitle} em ${parsed.displayDate} às ${parsed.time}. O painel administrativo já recebeu esse agendamento.`,
-      suggestions: ["Ver imóvel", "Agendar outra visita", "Mostrar mais salas"],
-    });
-    setPendingSchedule(null);
-    return true;
+      appendAgentMessage({
+        content: `Agendamento realizado com sucesso. Visita marcada para ${property.propertyTitle} em ${parsed.displayDate} às ${parsed.time}. O painel administrativo já recebeu esse agendamento.`,
+        suggestions: ["Ver imóvel", "Agendar outra visita", "Mostrar mais salas"],
+      });
+      setPendingSchedule(null);
+      return true;
+    } catch (error) {
+      appendAgentMessage({
+        content: error instanceof Error ? error.message : "Nao foi possivel concluir o agendamento agora.",
+        suggestions: ["Amanhã às 09:00", "Amanhã às 14:00", "Mostrar mais salas"],
+      });
+      return false;
+    }
   };
 
   const startScheduleFlow = (property: PendingSchedule) => {
