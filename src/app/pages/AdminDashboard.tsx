@@ -34,7 +34,7 @@ import {
   addProperty, 
   updateProperty, 
   deleteProperty, 
-  PROPERTIES_UPDATED_EVENT,
+  renderizarImoveis,
   type Property 
 } from "../../data/properties";
 import {
@@ -113,11 +113,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const syncProperties = () => {
-      loadProperties();
+      setProperties(renderizarImoveis());
     };
 
-    window.addEventListener(PROPERTIES_UPDATED_EVENT, syncProperties);
-    return () => window.removeEventListener(PROPERTIES_UPDATED_EVENT, syncProperties);
+    window.addEventListener("grupo-sp-properties:updated", syncProperties);
+    return () => window.removeEventListener("grupo-sp-properties:updated", syncProperties);
   }, []);
 
   const loadProperties = async () => {
