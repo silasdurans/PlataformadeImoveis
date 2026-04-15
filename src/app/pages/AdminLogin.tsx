@@ -28,6 +28,12 @@ export default function AdminLogin() {
     }, 1500);
   };
 
+  const fillDemoCredentials = () => {
+    setEmail("admin@saopauloparticipacoes.com.br");
+    setPassword("admin123");
+    setError("");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0A0E27] via-[#0F172A] to-[#1a1f3a] flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Effects */}
@@ -147,26 +153,37 @@ export default function AdminLogin() {
               </a>
             </div>
 
-            {/* Submit Button */}
-            <motion.button
-              type="submit"
-              disabled={isLoading}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-xl font-semibold shadow-lg shadow-blue-500/50 hover:shadow-blue-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Verificando...
-                </>
-              ) : (
-                <>
-                  <Shield className="size-5" />
-                  Acessar Painel
-                </>
-              )}
-            </motion.button>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+              <motion.button
+                type="submit"
+                disabled={isLoading}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-xl font-semibold shadow-lg shadow-blue-500/50 hover:shadow-blue-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="size-5" />
+                    Acessar Painel
+                  </>
+                )}
+              </motion.button>
+
+              <motion.button
+                type="button"
+                onClick={fillDemoCredentials}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-5 py-4 rounded-xl border border-white/20 bg-white/10 text-white font-medium hover:bg-white/15 transition-all"
+              >
+                Demo
+              </motion.button>
+            </div>
           </form>
 
           {/* Demo Credentials */}

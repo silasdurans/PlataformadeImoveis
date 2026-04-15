@@ -1,4 +1,4 @@
-import { Search, Sparkles, Award, ArrowRight, MapPin } from "lucide-react";
+import { Search, Sparkles, Award, ArrowRight, MapPin, X } from "lucide-react";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
 import { AIAgent } from "../components/AIAgent";
@@ -59,7 +59,25 @@ export default function Home() {
 
   const handleSearch = (query = searchQuery) => {
     const trimmedQuery = query.trim();
-    navigate(trimmedQuery ? `/resultados?q=${encodeURIComponent(trimmedQuery)}` : "/resultados");
+
+    if (!trimmedQuery) {
+      navigate("/resultados");
+      return;
+    }
+
+    const normalizedTrimmedQuery = normalizeText(trimmedQuery);
+    const exactMatch = properties.find((property) =>
+      normalizeText(
+        `${property.title} ${property.location} ${extractNeighborhood(property.location)} ${extractCity(property.location)}`,
+      ).includes(normalizedTrimmedQuery),
+    );
+
+    if (filteredResults.length === 1 && exactMatch) {
+      navigate(`/imovel/${exactMatch.id}`);
+      return;
+    }
+
+    navigate(`/resultados?q=${encodeURIComponent(trimmedQuery)}`);
   };
 
   const featuredPropertyIds = ["4", "5", "6", "7", "8", "1"];
@@ -99,14 +117,26 @@ export default function Home() {
 
                 <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder='Ex: São Luís, Athenas, Centro'
-                      className="flex-1 px-6 py-4 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 text-lg text-[#0F172A]"
-                      onKeyDown={(event) => event.key === "Enter" && handleSearch()}
-                    />
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder='Ex: São Luís, Athenas, Centro'
+                        className="w-full px-6 py-4 pr-14 bg-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 text-lg text-[#0F172A]"
+                        onKeyDown={(event) => event.key === "Enter" && handleSearch()}
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-slate-100 p-2 text-slate-500 transition-colors hover:bg-slate-200 hover:text-[#0F172A]"
+                          aria-label="Limpar busca"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      )}
+                    </div>
                     <button
                       onClick={() => handleSearch()}
                       className="px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25"
@@ -165,7 +195,14 @@ export default function Home() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="text-slate-500 text-sm">Exemplos:</span>
                     {["São Luís", "Athenas", "Centro", "Ponta d'Areia"].map((example) => (
-                      <button key={example} onClick={() => setSearchQuery(example)} className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-slate-300 text-sm rounded-full border border-white/10 transition-colors">
+                      <button
+                        key={example}
+                        onClick={() => {
+                          setSearchQuery(example);
+                          handleSearch(example);
+                        }}
+                        className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-slate-300 text-sm rounded-full border border-white/10 transition-colors"
+                      >
                         {example}
                       </button>
                     ))}

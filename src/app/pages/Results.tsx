@@ -22,7 +22,7 @@ export default function Results() {
   const [searchParams, setSearchParams] = useSearchParams();
   const properties = useProperties();
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
@@ -220,58 +220,150 @@ export default function Results() {
             </div>
           </div>
 
-          {showFilters && (
-            <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 lg:grid-cols-2">
-              <div>
-                <p className="mb-3 text-sm font-medium text-slate-700">Tipo</p>
-                <div className="flex flex-wrap gap-2">
-                  {propertyTypes.map((type) => {
-                    const Icon = type.icon;
-                    const isActive = selectedTypes.includes(normalizeText(type.id));
+          <div className="hidden md:block">
+            {showFilters && (
+              <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 lg:grid-cols-2">
+                <div>
+                  <p className="mb-3 text-sm font-medium text-slate-700">Tipo</p>
+                  <div className="flex flex-wrap gap-2">
+                    {propertyTypes.map((type) => {
+                      const Icon = type.icon;
+                      const isActive = selectedTypes.includes(normalizeText(type.id));
 
-                    return (
-                      <button
-                        key={type.id}
-                        type="button"
-                        onClick={() => toggleValue(selectedTypes, setSelectedTypes, normalizeText(type.id))}
-                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
-                          isActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      >
-                        <Icon className="size-4" />
-                        {type.label}
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={type.id}
+                          type="button"
+                          onClick={() => toggleValue(selectedTypes, setSelectedTypes, normalizeText(type.id))}
+                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
+                            isActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          <Icon className="size-4" />
+                          {type.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-3 text-sm font-medium text-slate-700">Comodidades</p>
+                  <div className="flex flex-wrap gap-2">
+                    {amenities.map((amenity) => {
+                      const Icon = amenity.icon;
+                      const isActive = selectedAmenities.includes(amenity.id);
+
+                      return (
+                        <button
+                          key={amenity.id}
+                          type="button"
+                          onClick={() => toggleValue(selectedAmenities, setSelectedAmenities, amenity.id)}
+                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
+                            isActive ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          <Icon className="size-4" />
+                          {amenity.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
+            )}
+          </div>
+        </motion.div>
 
-              <div>
-                <p className="mb-3 text-sm font-medium text-slate-700">Comodidades</p>
-                <div className="flex flex-wrap gap-2">
-                  {amenities.map((amenity) => {
-                    const Icon = amenity.icon;
-                    const isActive = selectedAmenities.includes(amenity.id);
+        {showFilters && (
+          <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm md:hidden">
+            <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-[28px] bg-white p-5 shadow-2xl">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg text-[#0F172A]">Filtros</h2>
+                  <p className="text-sm text-slate-500">Refine sua busca sem poluir a tela</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(false)}
+                  className="rounded-full bg-slate-100 p-2 text-slate-500"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
 
-                    return (
-                      <button
-                        key={amenity.id}
-                        type="button"
-                        onClick={() => toggleValue(selectedAmenities, setSelectedAmenities, amenity.id)}
-                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
-                          isActive ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
-                      >
-                        <Icon className="size-4" />
-                        {amenity.label}
-                      </button>
-                    );
-                  })}
+              <div className="space-y-6">
+                <div>
+                  <p className="mb-3 text-sm font-medium text-slate-700">Tipo</p>
+                  <div className="flex flex-wrap gap-2">
+                    {propertyTypes.map((type) => {
+                      const Icon = type.icon;
+                      const isActive = selectedTypes.includes(normalizeText(type.id));
+
+                      return (
+                        <button
+                          key={type.id}
+                          type="button"
+                          onClick={() => toggleValue(selectedTypes, setSelectedTypes, normalizeText(type.id))}
+                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
+                            isActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          <Icon className="size-4" />
+                          {type.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-3 text-sm font-medium text-slate-700">Comodidades</p>
+                  <div className="flex flex-wrap gap-2">
+                    {amenities.map((amenity) => {
+                      const Icon = amenity.icon;
+                      const isActive = selectedAmenities.includes(amenity.id);
+
+                      return (
+                        <button
+                          key={amenity.id}
+                          type="button"
+                          onClick={() => toggleValue(selectedAmenities, setSelectedAmenities, amenity.id)}
+                          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors ${
+                            isActive ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          <Icon className="size-4" />
+                          {amenity.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTypes([]);
+                      setSelectedAmenities([]);
+                    }}
+                    className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-600"
+                  >
+                    Limpar filtros
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="flex-1 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm text-white shadow-lg shadow-cyan-200"
+                  >
+                    Ver salas
+                  </button>
                 </div>
               </div>
             </div>
-          )}
-        </motion.div>
+          </div>
+        )}
 
         {viewMode === "map" ? (
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>

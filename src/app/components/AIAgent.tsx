@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, X, Send, Mic, Calendar, MapPin, DollarSign, Building2, Users, TrendingUp, Clock, Zap, CheckCircle2, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useProperties } from "../../data/properties";
+import { addSchedule } from "../../data/schedules";
+import { getClientSession } from "../lib/clientSession";
 
 interface Message {
   id: string;
@@ -19,6 +21,11 @@ interface PropertyResult {
   type: string;
   location: string;
   price: number;
+}
+
+interface PendingSchedule {
+  propertyId: string;
+  propertyTitle: string;
 }
 
 export function AIAgent() {
@@ -41,6 +48,7 @@ export function AIAgent() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -51,6 +59,86 @@ export function AIAgent() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const appendAgentMessage = (message: Omit<Message, "id" | "type" | "timestamp">) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        type: "agent",
+        timestamp: new Date(),
+        ...message,
+      },
+    ]);
+  };
+
+  const parseScheduleRequest = (text: string) => {
+    const normalized = text.toLowerCase();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const timeMatch = normalized.match(/(\d{1,2})[:h](\d{2})/);
+    if (!timeMatch) {
+      return null;
+    }
+
+    const hours = Number(timeMatch[1]);
+    const minutes = Number(timeMatch[2]);
+    const time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+
+    const scheduledDate = new Date(now);
+
+    if (normalized.includes("amanh")) {
+      scheduledDate.setDate(scheduledDate.getDate() + 1);
+    } else if (normalized.includes("hoje")) {
+      // keep current day
+    } else if (normalized.includes("segunda")) {
+      while (scheduledDate.getDay() !== 1) scheduledDate.setDate(scheduledDate.getDate() + 1);
+    } else if (normalized.includes("terca") || normalized.includes("terça")) {
+      while (scheduledDate.getDay() !== 2) scheduledDate.setDate(scheduledDate.getDate() + 1);
+    } else if (normalized.includes("quarta")) {
+      while (scheduledDate.getDay() !== 3) scheduledDate.setDate(scheduledDate.getDate() + 1);
+    } else if (normalized.includes("quinta")) {
+      while (scheduledDate.getDay() !== 4) scheduledDate.setDate(scheduledDate.getDate() + 1);
+    } else if (normalized.includes("sexta")) {
+      while (scheduledDate.getDay() !== 5) scheduledDate.setDate(scheduledDate.getDate() + 1);
+    } else {
+      const dateMatch = normalized.match(/(\d{1,2})[\\/](\d{1,2})(?:[\\/](\d{4}))?/);
+      if (dateMatch) {
+        const day = Number(dateMatch[1]);
+        const month = Number(dateMatch[2]) - 1;
+        const year = dateMatch[3] ? Number(dateMatch[3]) : now.getFullYear();
+        scheduledDate.setFullYear(year, month, day);
+      } else {
+        return null;
+      }
+    }
+
+    return {
+      date: `${scheduledDate.getFullYear()}-${String(scheduledDate.getMonth() + 1).padStart(2, "0")}-${String(scheduledDate.getDate()).padStart(2, "0")}`,
+      time,
+      displayDate: scheduledDate.toLocaleDateString("pt-BR"),
+    };
+  };
+
+  const startScheduleFlow = (property: PendingSchedule) => {
+    const session = getClientSession();
+
+    if (!session) {
+      appendAgentMessage({
+        content: "Para concluir um agendamento real, faça login como cliente primeiro. Vou te levar para a tela de login.",
+        suggestions: ["Ir para login", "Continuar pesquisando"],
+      });
+      setTimeout(() => navigate("/cliente/login"), 900);
+      return;
+    }
+
+    setPendingSchedule(property);
+    appendAgentMessage({
+      content: `Perfeito. Vamos agendar uma visita real para "${property.propertyTitle}". Envie a data e o horário, por exemplo: "amanhã às 09:00" ou "25/04 às 14:00".`,
+      suggestions: ["Amanhã às 09:00", "Amanhã às 14:00", "Sexta às 10:00", "25/04 às 16:00"],
+    });
+  };
 
   // Simulação de inteligência - analisa a mensagem e retorna resposta contextual
   const analyzeMessage = (userMessage: string): Message => {
@@ -185,12 +273,13 @@ export function AIAgent() {
 
   const handleSend = () => {
     if (!input.trim()) return;
+    const currentInput = input.trim();
 
     // Adiciona mensagem do usuário
     const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
-      content: input,
+      content: currentInput,
       timestamp: new Date()
     };
 
@@ -198,17 +287,131 @@ export function AIAgent() {
     setInput("");
     setIsTyping(true);
 
+    if (pendingSchedule) {
+      setTimeout(() => {
+        const parsed = parseScheduleRequest(currentInput);
+
+        if (!parsed) {
+          appendAgentMessage({
+            content: `Não consegui entender a data e o horário para "${pendingSchedule.propertyTitle}". Tente algo como "amanhã às 09:00" ou "25/04 às 14:00".`,
+            suggestions: ["Amanhã às 09:00", "Sexta às 14:00", "25/04 às 10:00"],
+          });
+          setIsTyping(false);
+          return;
+        }
+
+        const session = getClientSession();
+        if (!session) {
+          appendAgentMessage({
+            content: "Sua sessão de cliente não está ativa. Faça login novamente para concluir o agendamento.",
+            suggestions: ["Ir para login"],
+          });
+          setPendingSchedule(null);
+          setIsTyping(false);
+          setTimeout(() => navigate("/cliente/login"), 900);
+          return;
+        }
+
+        addSchedule({
+          propertyTitle: pendingSchedule.propertyTitle,
+          clientName: session.name,
+          clientEmail: session.email,
+          clientId: session.id,
+          date: parsed.date,
+          time: parsed.time,
+          status: "agendado",
+          notes: `Agendamento criado via chatbot inteligente para ${pendingSchedule.propertyTitle}.`,
+        });
+
+        appendAgentMessage({
+          content: `Agendamento realizado com sucesso. Visita marcada para ${pendingSchedule.propertyTitle} em ${parsed.displayDate} às ${parsed.time}. O painel administrativo já recebeu esse agendamento.`,
+          suggestions: ["Ver imóvel", "Agendar outra visita", "Mostrar mais salas"],
+        });
+        setPendingSchedule(null);
+        setIsTyping(false);
+      }, 900);
+
+      return;
+    }
+
     // Simula processamento da IA
     setTimeout(() => {
-      const agentResponse = analyzeMessage(input);
+      const agentResponse = analyzeMessage(currentInput);
       setMessages(prev => [...prev, agentResponse]);
       setIsTyping(false);
     }, 1000 + Math.random() * 1000);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
+    if (suggestion === "Ir para login") {
+      navigate("/cliente/login");
+      return;
+    }
+
     setInput(suggestion);
-    setTimeout(() => handleSend(), 100);
+    setTimeout(() => {
+      setInput("");
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        type: "user",
+        content: suggestion,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setIsTyping(true);
+
+      if (pendingSchedule) {
+        const parsed = parseScheduleRequest(suggestion);
+
+        setTimeout(() => {
+          if (!parsed) {
+            appendAgentMessage({
+              content: "Não consegui validar esse horário. Escolha outra sugestão ou digite a data e hora manualmente.",
+              suggestions: ["Amanhã às 09:00", "Sexta às 14:00"],
+            });
+            setIsTyping(false);
+            return;
+          }
+
+          const session = getClientSession();
+          if (!session) {
+            appendAgentMessage({
+              content: "Faça login como cliente para concluir o agendamento.",
+              suggestions: ["Ir para login"],
+            });
+            setPendingSchedule(null);
+            setIsTyping(false);
+            return;
+          }
+
+          addSchedule({
+            propertyTitle: pendingSchedule.propertyTitle,
+            clientName: session.name,
+            clientEmail: session.email,
+            clientId: session.id,
+            date: parsed.date,
+            time: parsed.time,
+            status: "agendado",
+            notes: `Agendamento criado via chatbot inteligente para ${pendingSchedule.propertyTitle}.`,
+          });
+
+          appendAgentMessage({
+            content: `Agendamento realizado com sucesso. Visita marcada para ${pendingSchedule.propertyTitle} em ${parsed.displayDate} às ${parsed.time}.`,
+            suggestions: ["Ver imóvel", "Mostrar mais salas"],
+          });
+          setPendingSchedule(null);
+          setIsTyping(false);
+        }, 700);
+
+        return;
+      }
+
+      setTimeout(() => {
+        const agentResponse = analyzeMessage(suggestion);
+        setMessages(prev => [...prev, agentResponse]);
+        setIsTyping(false);
+      }, 700);
+    }, 100);
   };
 
   const toggleListening = () => {
@@ -339,24 +542,35 @@ export function AIAgent() {
                     {message.results && message.results.length > 0 && (
                       <div className="mt-3 space-y-3">
                         {message.results.map((item) => (
-                          <button
+                          <div
                             key={item.id}
-                            type="button"
-                            onClick={() => navigate(`/imovel/${item.id}`)}
-                            className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-left shadow-sm hover:border-blue-300 hover:bg-blue-50 transition"
+                            className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-left shadow-sm"
                           >
-                            <div className="flex items-center justify-between gap-4">
-                              <div>
-                                <p className="text-sm text-slate-500">{item.type}</p>
-                                <p className="font-semibold text-[#0F172A]">{item.title}</p>
-                                <p className="text-xs text-slate-500 mt-1">{item.location}</p>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/imovel/${item.id}`)}
+                              className="w-full text-left hover:text-blue-700 transition"
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div>
+                                  <p className="text-sm text-slate-500">{item.type}</p>
+                                  <p className="font-semibold text-[#0F172A]">{item.title}</p>
+                                  <p className="text-xs text-slate-500 mt-1">{item.location}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-[#0F172A]">R$ {item.price.toLocaleString('pt-BR')}</p>
+                                  <p className="text-xs text-slate-500">Ver detalhes</p>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-sm font-semibold text-[#0F172A]">R$ {item.price.toLocaleString('pt-BR')}</p>
-                                <p className="text-xs text-slate-500">Ver detalhes</p>
-                              </div>
-                            </div>
-                          </button>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startScheduleFlow({ propertyId: item.id, propertyTitle: item.title })}
+                              className="mt-3 w-full rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-cyan-200"
+                            >
+                              Agendar visita real
+                            </button>
+                          </div>
                         ))}
                       </div>
                     )}

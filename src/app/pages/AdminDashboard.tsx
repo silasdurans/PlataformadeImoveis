@@ -7,6 +7,7 @@ import {
   TrendingUp, 
   Calendar,
   Eye,
+  Bell,
   MessageSquare,
   Star,
   MapPin,
@@ -382,7 +383,6 @@ export default function AdminDashboard() {
     totalProperties: 247,
     activeListings: 189,
     totalViews: 15234,
-    totalLeads: 892,
     monthlyRevenue: 1250000,
     occupancyRate: 87,
     avgRating: 4.7,
@@ -439,9 +439,8 @@ export default function AdminDashboard() {
             {[
               { id: "overview", icon: BarChart3, label: "Visão Geral" },
               { id: "properties", icon: Building2, label: "Imóveis" },
-              { id: "leads", icon: Users, label: "Leads" },
               { id: "analytics", icon: PieChart, label: "Análises" },
-              { id: "messages", icon: MessageSquare, label: "Mensagens", badge: 12 },
+              { id: "notifications", icon: Bell, label: "Notificações", badge: 12 },
               { id: "calendar", icon: Calendar, label: "Agenda" },
             ].map((item) => (
               <button
@@ -530,9 +529,9 @@ export default function AdminDashboard() {
                     bgColor: "from-purple-50 to-violet-50"
                   },
                   { 
-                    label: "Leads Gerados", 
-                    value: stats.totalLeads, 
-                    change: "+8%", 
+                    label: "Anúncios Ativos", 
+                    value: stats.activeListings, 
+                    change: "+6%", 
                     icon: Users, 
                     color: "from-green-500 to-emerald-600",
                     bgColor: "from-green-50 to-emerald-50"
@@ -1204,9 +1203,8 @@ export default function AdminDashboard() {
               </div>
               <h3 className="text-2xl font-bold text-[#0F172A] mb-2">
                 {activeTab === "properties" && "Gerenciamento de Imóveis"}
-                {activeTab === "leads" && "Gerenciamento de Leads"}
                 {activeTab === "analytics" && "Análises e Relatórios"}
-                {activeTab === "messages" && "Central de Mensagens"}
+                {activeTab === "notifications" && "Central de Notificações"}
                 {activeTab === "calendar" && "Agenda e Visitas"}
               </h3>
               <p className="text-slate-600">Esta seção está em desenvolvimento</p>
