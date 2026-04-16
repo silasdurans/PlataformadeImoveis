@@ -8,6 +8,7 @@ import { useNavigate } from "react-router";
 import { useProperties } from "../../data/properties";
 import { addSchedule, getAvailableScheduleTimes } from "../../data/schedules";
 import { getClientSession } from "../lib/clientSession";
+import { chatWithAI } from "../lib/aiSearch";
 
 interface Message {
   id: string;
@@ -41,6 +42,14 @@ const normalizeText = (value: string) =>
 
 const formatDateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const buildPropertyResult = (property: ReturnType<typeof useProperties>[number]): PropertyResult => ({
+  id: property.id,
+  title: property.title,
+  type: property.type,
+  location: property.location,
+  price: property.price,
+});
 
 export function AIAgent() {
   const properties = useProperties();
@@ -256,6 +265,25 @@ export function AIAgent() {
     });
   };
 
+  const mapResultsFromPropertyIds = (propertyIds: string[]) => {
+    const propertyMap = new Map(properties.map((property) => [property.id, property]));
+
+    return propertyIds
+      .map((propertyId) => propertyMap.get(propertyId))
+      .filter((property): property is (typeof properties)[number] => Boolean(property))
+      .slice(0, 4)
+      .map(buildPropertyResult);
+  };
+
+  const buildConversationHistory = () =>
+    messages
+      .filter((message) => message.type === "user" || message.type === "agent")
+      .slice(-8)
+      .map((message) => ({
+        role: message.type === "user" ? "user" : "assistant",
+        content: message.content,
+      }));
+
   // Simulação de inteligência - analisa a mensagem e retorna resposta contextual
   const analyzeMessage = (userMessage: string): Message => {
     const lowerMessage = userMessage.toLowerCase();
@@ -405,6 +433,28 @@ export function AIAgent() {
     };
   };
 
+  const getAgentResponse = async (userMessage: string): Promise<Message> => {
+    try {
+      const remoteResponse = await chatWithAI(userMessage, buildConversationHistory());
+      const responseResults = mapResultsFromPropertyIds(remoteResponse.propertyIds);
+
+      if (responseResults.length > 0) {
+        setLastResults(responseResults);
+      }
+
+      return {
+        id: Date.now().toString(),
+        type: "agent",
+        content: remoteResponse.reply,
+        timestamp: new Date(),
+        suggestions: remoteResponse.suggestions,
+        results: responseResults.length > 0 ? responseResults : undefined,
+      };
+    } catch {
+      return analyzeMessage(userMessage);
+    }
+  };
+
   const handleSend = () => {
     if (!input.trim()) return;
     const currentInput = input.trim();
@@ -441,8 +491,8 @@ export function AIAgent() {
     }
 
     // Simula processamento da IA
-    setTimeout(() => {
-      const agentResponse = analyzeMessage(currentInput);
+    setTimeout(async () => {
+      const agentResponse = await getAgentResponse(currentInput);
       setMessages(prev => [...prev, agentResponse]);
       setIsTyping(false);
     }, 1000 + Math.random() * 1000);
@@ -502,8 +552,8 @@ export function AIAgent() {
         return;
       }
 
-      setTimeout(() => {
-        const agentResponse = analyzeMessage(suggestion);
+      setTimeout(async () => {
+        const agentResponse = await getAgentResponse(suggestion);
         setMessages(prev => [...prev, agentResponse]);
         setIsTyping(false);
       }, 700);
