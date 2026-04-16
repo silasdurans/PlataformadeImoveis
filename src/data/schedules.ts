@@ -75,7 +75,16 @@ const apiRequest = async <T>(path: string, init?: RequestInit): Promise<T> => {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Erro ao acessar ${path}`);
+    let message = text || `Erro ao acessar ${path}`;
+
+    try {
+      const parsed = JSON.parse(text);
+      message = parsed.error || parsed.message || message;
+    } catch {
+      // Keep original text when response is not JSON.
+    }
+
+    throw new Error(message);
   }
 
   return (await response.json()) as T;
@@ -112,54 +121,47 @@ export const fetchSchedules = async (): Promise<ScheduleItem[]> => {
   }
 };
 
+export const getAvailableScheduleTimes = async (propertyTitle: string, date: string): Promise<string[]> => {
+  const schedules = await fetchSchedules();
+  const bookedTimes = schedules
+    .filter(
+      (schedule) =>
+        schedule.propertyTitle === propertyTitle &&
+        schedule.date === date &&
+        schedule.status !== "cancelado",
+    )
+    .map((schedule) => schedule.time);
+
+  return ["09:00", "11:00", "14:00", "16:00"].filter((time) => !bookedTimes.includes(time));
+};
+
 export const addSchedule = async (
   schedule: Omit<ScheduleItem, "id" | "createdAt">,
 ): Promise<ScheduleItem> => {
-  try {
-    const created = normalizeSchedule(
-      await apiRequest<Partial<ScheduleItem>>("/api/schedules", {
-        method: "POST",
-        body: JSON.stringify(schedule),
-      }),
-    );
-    cacheSchedules([created, ...getSchedules().filter((item) => item.id !== created.id)], true);
-    return created;
-  } catch {
-    const schedules = getSchedules();
-    const newSchedule: ScheduleItem = {
-      ...normalizeSchedule(schedule),
-      id: schedules.length > 0 ? Math.max(...schedules.map((item) => item.id)) + 1 : 1,
-      createdAt: new Date().toISOString(),
-    };
-    cacheSchedules([newSchedule, ...schedules], true);
-    return newSchedule;
-  }
+  const created = normalizeSchedule(
+    await apiRequest<Partial<ScheduleItem>>("/api/schedules", {
+      method: "POST",
+      body: JSON.stringify(schedule),
+    }),
+  );
+  cacheSchedules([created, ...getSchedules().filter((item) => item.id !== created.id)], true);
+  return created;
 };
 
 export const updateSchedule = async (id: number, updates: Partial<ScheduleItem>) => {
-  try {
-    const updated = normalizeSchedule(
-      await apiRequest<Partial<ScheduleItem>>(`/api/schedules/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ ...updates, id }),
-      }),
-    );
-    const schedules = getSchedules().map((schedule) => (schedule.id === id ? updated : schedule));
-    cacheSchedules(schedules, true);
-  } catch {
-    const schedules = getSchedules().map((schedule) =>
-      schedule.id === id ? { ...schedule, ...updates } : schedule,
-    );
-    cacheSchedules(schedules, true);
-  }
+  const updated = normalizeSchedule(
+    await apiRequest<Partial<ScheduleItem>>(`/api/schedules/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...updates, id }),
+    }),
+  );
+  const schedules = getSchedules().map((schedule) => (schedule.id === id ? updated : schedule));
+  cacheSchedules(schedules, true);
 };
 
 export const deleteSchedule = async (id: number) => {
-  try {
-    await apiRequest(`/api/schedules/${id}`, { method: "DELETE" });
-  } finally {
-    cacheSchedules(getSchedules().filter((schedule) => schedule.id !== id), true);
-  }
+  await apiRequest(`/api/schedules/${id}`, { method: "DELETE" });
+  cacheSchedules(getSchedules().filter((schedule) => schedule.id !== id), true);
 };
 
 export const useSchedules = () => {

@@ -1,3 +1,4 @@
+require("dotenv").config();
 /**
  * Servidor Express da aplicação. Inicializa o banco SQLite, normaliza os dados e expõe a API usada pelo frontend.
  */
@@ -9,6 +10,8 @@ const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:3b";
 const dbPath = path.join(__dirname, "properties.db");
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -221,6 +224,216 @@ const mapPropertyRow = (row) =>
   });
 
 const mapScheduleRow = (row) => normalizeSchedule(row);
+const normalizeText = (value = "") =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+const buildPropertySearchContext = (property) => ({
+  id: property.id,
+  title: property.title,
+  type: property.type,
+  price: property.price,
+  location: property.location,
+  size: property.size,
+  capacity: property.capacity,
+  features: property.features,
+  description: property.description,
+});
+
+const summarizeHealthError = (error) => {
+  if (!error) {
+    return "Ollama indisponivel.";
+  }
+
+  if (error.cause?.code === "ECONNREFUSED" || error.code === "ECONNREFUSED") {
+    return "Ollama nao respondeu em http://127.0.0.1:11434.";
+  }
+
+  return error.message || "Ollama indisponivel.";
+};
+
+async function getOllamaStatus() {
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
+
+    if (!response.ok) {
+      return {
+        available: false,
+        provider: "ollama",
+        model: OLLAMA_MODEL,
+        message: `Ollama respondeu com status ${response.status}.`,
+      };
+    }
+
+    const payload = await response.json();
+    const models = Array.isArray(payload?.models) ? payload.models : [];
+    const installed = models.some((item) => item?.name === OLLAMA_MODEL);
+
+    return {
+      available: installed,
+      provider: "ollama",
+      model: OLLAMA_MODEL,
+      message: installed
+        ? `Ollama pronto com o modelo ${OLLAMA_MODEL}.`
+        : `Ollama esta online, mas o modelo ${OLLAMA_MODEL} ainda nao foi baixado.`,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      provider: "ollama",
+      model: OLLAMA_MODEL,
+      message: summarizeHealthError(error),
+    };
+  }
+}
+
+const applyAIPropertySelection = (properties, selection) => {
+  const propertyMap = new Map(properties.map((property) => [property.id, property]));
+  const selectedIds = Array.isArray(selection?.property_ids)
+    ? selection.property_ids.filter((id) => propertyMap.has(id))
+    : [];
+
+  if (selectedIds.length > 0) {
+    return selectedIds;
+  }
+
+  const normalizedKeywords = Array.isArray(selection?.keywords)
+    ? selection.keywords.map((keyword) => normalizeText(keyword)).filter(Boolean)
+    : [];
+
+  if (normalizedKeywords.length === 0) {
+    return properties.slice(0, 8).map((property) => property.id);
+  }
+
+  return properties
+    .map((property) => {
+      const searchableText = normalizeText(
+        [
+          property.title,
+          property.type,
+          property.location,
+          property.description,
+          property.features.join(" "),
+        ].join(" "),
+      );
+
+      const score = normalizedKeywords.reduce(
+        (total, keyword) => total + (searchableText.includes(keyword) ? 1 : 0),
+        0,
+      );
+
+      return { id: property.id, score };
+    })
+    .filter((property) => property.score > 0)
+    .sort((first, second) => second.score - first.score)
+    .slice(0, 8)
+    .map((property) => property.id);
+};
+
+const buildFallbackMatchReasons = (properties, selection) => {
+  const byId = new Map();
+  const labels = Array.isArray(selection?.labels) ? selection.labels : [];
+
+  properties.forEach((property) => {
+    const searchableText = normalizeText(
+      [property.title, property.location, property.description, property.features.join(" ")].join(" "),
+    );
+
+    const reasons = labels.filter((label) => searchableText.includes(normalizeText(label))).slice(0, 3);
+    byId.set(property.id, reasons);
+  });
+
+  return byId;
+};
+
+const extractJsonObject = (value = "") => {
+  const trimmed = String(value).trim();
+  const fencedMatch = trimmed.match(/```json\s*([\s\S]*?)```/i) || trimmed.match(/```\s*([\s\S]*?)```/i);
+  const content = fencedMatch ? fencedMatch[1].trim() : trimmed;
+  const firstBraceIndex = content.indexOf("{");
+  const lastBraceIndex = content.lastIndexOf("}");
+
+  if (firstBraceIndex === -1 || lastBraceIndex === -1 || lastBraceIndex <= firstBraceIndex) {
+    throw new Error("Ollama response did not contain valid JSON");
+  }
+
+  return content.slice(firstBraceIndex, lastBraceIndex + 1);
+};
+
+async function runOllamaSearch(query, properties) {
+  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      stream: false,
+      format: "json",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Voce interpreta buscas de imoveis comerciais em portugues do Brasil. " +
+            "Analise a frase do usuario e devolva apenas JSON valido, sem markdown e sem texto adicional. " +
+            'Formato esperado: {"summary":"string","labels":["string"],"keywords":["string"],"property_ids":["string"],"match_reasons":[{"property_id":"string","reasons":["string"]}]}. ' +
+            "Nao invente ids. Use somente ids presentes na lista de imoveis recebida. " +
+            "Mantenha labels curtas e legiveis. " +
+            "Em match_reasons, explique em ate 3 motivos curtos por imovel, como bairro, faixa de preco, capacidade ou comodidade.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            query,
+            properties: properties.map(buildPropertySearchContext),
+          }),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Ollama request failed: ${response.status} ${errorText}`);
+  }
+
+  const payload = await response.json();
+  const content = payload?.message?.content || "";
+  const parsed = JSON.parse(extractJsonObject(content));
+  const propertyIds = applyAIPropertySelection(properties, parsed);
+  const fallbackReasons = buildFallbackMatchReasons(properties, parsed);
+  const matchReasons = Array.isArray(parsed.match_reasons)
+    ? parsed.match_reasons
+        .filter((item) => typeof item?.property_id === "string")
+        .map((item) => ({
+          propertyId: item.property_id,
+          reasons: Array.isArray(item.reasons)
+            ? item.reasons.filter((reason) => typeof reason === "string").slice(0, 3)
+            : [],
+        }))
+    : [];
+
+  return {
+    provider: "ollama",
+    model: OLLAMA_MODEL,
+    labels: Array.isArray(parsed.labels) ? parsed.labels.slice(0, 6) : [],
+    propertyIds,
+    matchReasons: propertyIds.map((propertyId) => {
+      const explicitReasons = matchReasons.find((item) => item.propertyId === propertyId)?.reasons ?? [];
+
+      return {
+        propertyId,
+        reasons: explicitReasons.length ? explicitReasons : fallbackReasons.get(propertyId) ?? [],
+      };
+    }),
+    summary:
+      typeof parsed.summary === "string" && parsed.summary.trim()
+        ? parsed.summary.trim()
+        : "Busca interpretada com IA.",
+  };
+}
 
 async function initializeDatabase() {
   try {
@@ -398,8 +611,57 @@ async function insertSchedule(schedule) {
   return { ...normalized, id: result.lastID };
 }
 
+async function findScheduleConflict({ propertyTitle, date, time, excludeId = null }) {
+  const query = `
+    SELECT * FROM schedules
+    WHERE propertyTitle = ?
+      AND date = ?
+      AND time = ?
+      AND status != 'cancelado'
+      ${excludeId !== null ? "AND id != ?" : ""}
+    LIMIT 1
+  `;
+
+  const params = excludeId !== null
+    ? [propertyTitle, date, time, excludeId]
+    : [propertyTitle, date, time];
+
+  return get(query, params);
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api/health/ai", async (_req, res) => {
+  const status = await getOllamaStatus();
+  res.status(status.available ? 200 : 503).json(status);
+});
+
+app.post("/api/ai-search", async (req, res) => {
+  try {
+    const query = String(req.body?.query || "").trim();
+
+    if (!query) {
+      res.status(400).json({ error: "Query is required" });
+      return;
+    }
+
+    const ollamaStatus = await getOllamaStatus();
+    if (!ollamaStatus.available) {
+      res.status(503).json({ error: ollamaStatus.message });
+      return;
+    }
+
+    const rows = await all("SELECT * FROM properties_v2 ORDER BY datetime(created_at) DESC, title ASC");
+    const properties = rows.map(mapPropertyRow);
+    const result = await runOllamaSearch(query, properties);
+
+    res.json(result);
+  } catch (error) {
+    console.error("AI search failed:", error.message);
+    res.status(503).json({ error: "AI search unavailable" });
+  }
 });
 
 app.get("/api/properties", async (_req, res) => {
@@ -528,6 +790,12 @@ app.post("/api/schedules", async (req, res) => {
       return;
     }
 
+    const conflict = await findScheduleConflict(normalized);
+    if (conflict) {
+      res.status(409).json({ error: "Time slot already booked for this property" });
+      return;
+    }
+
     const created = await insertSchedule(normalized);
     res.status(201).json(created);
   } catch (error) {
@@ -549,6 +817,18 @@ app.put("/api/schedules/:id", async (req, res) => {
       ...req.body,
       id: Number(req.params.id),
     });
+
+    const conflict = await findScheduleConflict({
+      propertyTitle: normalized.propertyTitle,
+      date: normalized.date,
+      time: normalized.time,
+      excludeId: normalized.id,
+    });
+
+    if (conflict) {
+      res.status(409).json({ error: "Time slot already booked for this property" });
+      return;
+    }
 
     await run(
       `

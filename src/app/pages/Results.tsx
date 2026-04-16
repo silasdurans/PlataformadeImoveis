@@ -11,20 +11,23 @@ import { Footer } from "../components/Footer";
 import { PropertyCard } from "../components/PropertyCard";
 import { MapSection } from "../components/common/MapSection";
 import { useProperties } from "../../data/properties";
-
-const normalizeText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+import {
+  applyRemoteSearchRanking,
+  buildSearchSuggestions,
+  getAISearchStatus,
+  getRemoteMatchReasons,
+  normalizeText,
+  parseNaturalSearch,
+  rankPropertiesBySearch,
+  searchPropertiesWithAI,
+  type AIStatus,
+  type RemoteAISearchResult,
+} from "../lib/aiSearch";
 
 const getBounds = (values: number[], fallback: [number, number]) =>
   values.length
     ? { min: Math.min(...values), max: Math.max(...values) }
     : { min: fallback[0], max: fallback[1] };
-
-const extractNeighborhood = (location: string) => location.split(",")[0]?.trim() ?? location;
-const extractCity = (location: string) => location.split(",")[1]?.replace("- MA", "").trim() ?? location;
 
 export default function Results() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,6 +37,9 @@ export default function Results() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+  const [remoteResult, setRemoteResult] = useState<RemoteAISearchResult | null>(null);
+  const [isAISearchLoading, setIsAISearchLoading] = useState(false);
+  const [aiStatus, setAIStatus] = useState<AIStatus | null>(null);
 
   const propertyTypes = [
     { id: "escritorio", label: "Escritório", icon: Building2 },
@@ -79,33 +85,77 @@ export default function Results() {
   }, [capacityBounds.max, capacityBounds.min, priceBounds.max, priceBounds.min, sizeBounds.max, sizeBounds.min]);
 
   const normalizedQuery = normalizeText(searchQuery.trim());
+  const parsedSearch = useMemo(() => parseNaturalSearch(searchQuery, properties), [properties, searchQuery]);
 
-  const suggestions = useMemo(() => {
-    if (!normalizedQuery) {
-      return [];
-    }
+  useEffect(() => {
+    let isActive = true;
 
-    const matches = new Set<string>();
-
-    properties.forEach((property) => {
-      [property.title, extractNeighborhood(property.location), extractCity(property.location)].forEach((term) => {
-        if (normalizeText(term).includes(normalizedQuery)) {
-          matches.add(term);
+    getAISearchStatus()
+      .then((status) => {
+        if (isActive) {
+          setAIStatus(status);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setAIStatus({
+            available: false,
+            provider: "ollama",
+            model: "indisponivel",
+            message: "Nao foi possivel verificar o Ollama agora.",
+          });
         }
       });
-    });
 
-    return Array.from(matches).slice(0, 6);
-  }, [normalizedQuery, properties]);
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim();
+
+    if (!trimmedQuery) {
+      setRemoteResult(null);
+      setIsAISearchLoading(false);
+      return;
+    }
+
+    let isActive = true;
+    const timeoutId = window.setTimeout(async () => {
+      setIsAISearchLoading(true);
+
+      try {
+        const result = await searchPropertiesWithAI(trimmedQuery);
+        if (isActive) {
+          setRemoteResult(result);
+        }
+      } catch {
+        if (isActive) {
+          setRemoteResult(null);
+        }
+      } finally {
+        if (isActive) {
+          setIsAISearchLoading(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchQuery]);
+
+  const suggestions = useMemo(() => buildSearchSuggestions(properties, searchQuery), [properties, searchQuery]);
+  const interpretationLabels = remoteResult?.labels?.length ? remoteResult.labels : parsedSearch.labels;
 
   const filteredProperties = useMemo(() => {
-    return properties.filter((property) => {
-      const matchesSearch =
-        !normalizedQuery ||
-        normalizeText(
-          `${property.title} ${property.location} ${extractNeighborhood(property.location)} ${extractCity(property.location)}`,
-        ).includes(normalizedQuery);
+    const remoteRanked = applyRemoteSearchRanking(properties, remoteResult);
+    const localRanked = rankPropertiesBySearch(properties, searchQuery).map((item) => item.property);
+    const baseProperties = normalizedQuery ? remoteRanked ?? localRanked : properties;
 
+    return baseProperties.filter((property) => {
       const matchesType =
         selectedTypes.length === 0 ||
         selectedTypes.some((type) => normalizeText(property.type).includes(type));
@@ -124,9 +174,20 @@ export default function Results() {
       const matchesCapacity =
         property.capacity >= capacityRange[0] && property.capacity <= capacityRange[1];
 
-      return matchesSearch && matchesType && matchesAmenities && matchesPrice && matchesSize && matchesCapacity;
+      return matchesType && matchesAmenities && matchesPrice && matchesSize && matchesCapacity;
     });
-  }, [amenities, capacityRange, normalizedQuery, priceRange, properties, selectedAmenities, selectedTypes, sizeRange]);
+  }, [
+    amenities,
+    capacityRange,
+    normalizedQuery,
+    priceRange,
+    properties,
+    remoteResult,
+    searchQuery,
+    selectedAmenities,
+    selectedTypes,
+    sizeRange,
+  ]);
 
   const handleSearchSubmit = (query = searchQuery) => {
     const trimmedQuery = query.trim();
@@ -170,6 +231,12 @@ export default function Results() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-blue-600/10 rounded-full blur-[100px]" />
         </div>
         <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
+          {aiStatus && !aiStatus.available && (
+            <div className="mb-6 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 backdrop-blur-sm">
+              IA local indisponivel no momento. {aiStatus.message} Os resultados abaixo usam a busca local como fallback.
+            </div>
+          )}
+
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="size-5 text-blue-400" />
@@ -187,7 +254,7 @@ export default function Results() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   onKeyDown={(event) => event.key === "Enter" && handleSearchSubmit()}
-                  placeholder="Busque por nome, cidade ou bairro"
+                  placeholder="Ex: sala no Calhau ate 4 mil com estacionamento"
                   className="flex-1 rounded-2xl border border-white/10 bg-white/95 px-5 py-4 text-[#0F172A] outline-none focus:ring-2 focus:ring-cyan-400"
                 />
                 <button
@@ -205,13 +272,36 @@ export default function Results() {
                     <button
                       key={suggestion}
                       type="button"
-                      onClick={() => handleSearchSubmit(suggestion)}
+                      onClick={() => {
+                        setSearchQuery(suggestion);
+                        handleSearchSubmit(suggestion);
+                      }}
                       className="rounded-full border border-white/10 bg-white/10 px-4 py-1.5 text-sm text-slate-200 transition-colors hover:bg-white/20"
                     >
                       {suggestion}
                     </button>
                   ))}
                 </div>
+              )}
+
+              {!!interpretationLabels.length && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="text-sm text-cyan-200">
+                    {isAISearchLoading ? "IA analisando..." : "IA entendeu:"}
+                  </span>
+                  {interpretationLabels.slice(0, 6).map((label) => (
+                    <span
+                      key={label}
+                      className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-sm text-cyan-100"
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {remoteResult?.summary && (
+                <p className="mt-3 text-sm text-slate-300">{remoteResult.summary}</p>
               )}
             </div>
           </motion.div>
@@ -606,6 +696,8 @@ export default function Results() {
                           setPriceRange([priceBounds.min, priceBounds.max]);
                           setSizeRange([sizeBounds.min, sizeBounds.max]);
                           setCapacityRange([capacityBounds.min, capacityBounds.max]);
+                          setSearchQuery("");
+                          setSearchParams({});
                         }}
                         className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-600"
                       >
@@ -648,7 +740,7 @@ export default function Results() {
                   <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}>
                     {filteredProperties.map((property, index) => (
                       <motion.div key={property.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
-                        <PropertyCard {...property} />
+                        <PropertyCard {...property} matchReasons={getRemoteMatchReasons(remoteResult, property.id)} />
                       </motion.div>
                     ))}
                   </div>
