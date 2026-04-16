@@ -1,3 +1,6 @@
+/**
+ * Servidor Express da aplicação. Inicializa o banco SQLite, normaliza os dados e expõe a API usada pelo frontend.
+ */
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const cors = require("cors");
@@ -14,6 +17,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
   }
 
   console.log("Connected to SQLite database.");
+  // Assim que a conexão abre, garantimos schema e dados mínimos para uso imediato.
   initializeDatabase();
 });
 
@@ -107,6 +111,7 @@ const defaultSchedules = [
 ];
 
 const normalizeProperty = (property = {}) => {
+  // Normaliza dados vindos do banco ou do cliente para manter o contrato da API estável.
   const mainImage = property.image || (Array.isArray(property.images) ? property.images[0] : "") || "";
   const size = Number(property.size ?? property.area ?? 60);
   const capacity = Number(property.capacity ?? Math.max(4, Number(property.bedrooms ?? 2) * 2));
@@ -203,6 +208,7 @@ const safeJsonParse = (value, fallback) => {
   try {
     return JSON.parse(value);
   } catch {
+    // Evita falha total quando o JSON armazenado estiver inválido.
     return fallback;
   }
 };

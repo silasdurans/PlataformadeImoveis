@@ -1,3 +1,6 @@
+/**
+ * Modal reutilizável para agendamento de visita. Coleta os dados do cliente e confirma a solicitação.
+ */
 import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon } from "lucide-react";
 import {

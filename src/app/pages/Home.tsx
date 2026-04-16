@@ -1,3 +1,6 @@
+/**
+ * Página inicial da plataforma. Apresenta a busca principal, destaques e atalhos para os imóveis disponíveis.
+ */
 import { Search, Sparkles, Award, ArrowRight, MapPin, X } from "lucide-react";
 import { Header } from "../components/layout/Header";
 import { Footer } from "../components/layout/Footer";
@@ -16,6 +19,7 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+// Extrai partes da localização para ampliar a busca sem exigir o texto completo.
 const extractNeighborhood = (location: string) => location.split(",")[0]?.trim() ?? location;
 const extractCity = (location: string) => location.split(",")[1]?.replace("- MA", "").trim() ?? location;
 
@@ -27,11 +31,13 @@ export default function Home() {
   const normalizedQuery = normalizeText(searchQuery.trim());
 
   const filteredResults = useMemo(() => {
+    // Quando a busca está vazia, evitamos sugerir tudo e mantemos a interface limpa.
     if (!normalizedQuery) {
       return [];
     }
 
     return properties.filter((property) => {
+      // Junta título, bairro e cidade para tornar a busca mais flexível.
       const searchText = normalizeText(
         `${property.title} ${property.location} ${extractNeighborhood(property.location)} ${extractCity(property.location)}`,
       );
@@ -44,6 +50,7 @@ export default function Home() {
       return [];
     }
 
+    // Usa Set para evitar termos duplicados nas sugestões rápidas.
     const terms = new Set<string>();
 
     properties.forEach((property) => {
@@ -61,6 +68,7 @@ export default function Home() {
     const trimmedQuery = query.trim();
 
     if (!trimmedQuery) {
+      // Sem termo informado, a navegação vai para a listagem completa.
       navigate("/resultados");
       return;
     }
@@ -73,6 +81,7 @@ export default function Home() {
     );
 
     if (filteredResults.length === 1 && exactMatch) {
+      // Se só existir um resultado coerente, leva direto para o detalhe do imóvel.
       navigate(`/imovel/${exactMatch.id}`);
       return;
     }

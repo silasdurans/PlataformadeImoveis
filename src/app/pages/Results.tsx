@@ -1,3 +1,6 @@
+/**
+ * Página de resultados da busca. Filtra os imóveis e apresenta a listagem conforme os critérios informados.
+ */
 import { Grid, List, Map as MapIcon, Filter, X, Building2, Users, Maximize2, Coffee, Wifi, Car, Shield, Zap, Sparkles } from "lucide-react";
 import { Dispatch, SetStateAction, useMemo, useState } from "react";
 import { motion } from "motion/react";
