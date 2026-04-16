@@ -2,13 +2,14 @@
  * Modal de reserva inspirado no fluxo do Airbnb.
  * Permite selecionar mais de uma data e horário comercial antes da confirmação.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar as CalendarIcon, CheckCircle2, Clock3, Plus, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 
 import { addSchedule, getSchedules } from "../../../data/schedules";
 import { Calendar } from "../ui/calendar";
+import { useIsMobile } from "../ui/use-mobile";
 import {
   Dialog,
   DialogClose,
@@ -22,15 +23,30 @@ import {
 
 const COMMERCIAL_HOURS = [
   "08:00",
+  "08:30",
   "09:00",
+  "09:30",
   "10:00",
+  "10:30",
   "11:00",
+  "11:30",
+  "12:00",
+  "12:30",
   "13:00",
+  "13:30",
   "14:00",
+  "14:30",
   "15:00",
+  "15:30",
   "16:00",
+  "16:30",
   "17:00",
+  "17:30",
   "18:00",
+  "18:30",
+  "19:00",
+  "19:30",
+  "20:00",
 ];
 
 const pad = (value: number) => String(value).padStart(2, "0");
@@ -48,9 +64,11 @@ const formatLongDate = (date: Date) =>
   });
 
 const simulatedBookings: Record<string, string[]> = {
-  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 2)))]: ["10:00", "15:00"],
-  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 4)))]: ["08:00", "14:00", "17:00"],
-  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 6)))]: ["09:00", "16:00"],
+  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 1)))]: ["10:00", "15:00", "18:30"],
+  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 2)))]: ["09:30", "14:00", "17:00"],
+  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 4)))]: ["08:30", "12:30", "16:00"],
+  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 6)))]: ["11:00", "13:30", "19:00"],
+  [formatDateKey(new Date(new Date().setDate(new Date().getDate() + 8)))]: ["09:00", "15:30"],
 };
 
 interface ScheduleVisitModalProps {
@@ -64,63 +82,112 @@ interface ReservationOption {
 
 export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [isCompactScreen, setIsCompactScreen] = useState(false);
   const today = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     return now;
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1279px)");
+    const onChange = () => setIsCompactScreen(mediaQuery.matches);
+
+    onChange();
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, []);
+
   const [month, setMonth] = useState(today);
-  const [activeDate, setActiveDate] = useState<Date | undefined>(today);
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedDates, setSelectedDates] = useState<Date[]>([today]);
+  const [focusedDate, setFocusedDate] = useState<Date | undefined>(today);
+  const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
   const [selectedOptions, setSelectedOptions] = useState<ReservationOption[]>([]);
   const [confirmed, setConfirmed] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState("");
 
-  const activeDateKey = activeDate ? formatDateKey(activeDate) : "";
+  const selectedDateKeys = selectedDates.map((date) => formatDateKey(date));
 
   const isDateDisabled = (date: Date) => {
     const compareDate = new Date(date);
     compareDate.setHours(0, 0, 0, 0);
     const isPast = compareDate < today;
-    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-    return isPast || isWeekend;
+    return isPast;
   };
 
-  const bookedTimes = activeDateKey
-    ? [
-        ...(simulatedBookings[activeDateKey] ?? []),
-        ...getSchedules()
-          .filter(
-            (schedule) =>
-              schedule.propertyTitle === propertyTitle &&
-              schedule.date === activeDateKey &&
-              schedule.status !== "cancelado",
-          )
-          .map((schedule) => schedule.time),
-        ...selectedOptions
-          .filter((option) => option.date === activeDateKey)
-          .map((option) => option.time),
-      ]
-    : [];
+  const getPersistedBookedTimesByDate = (dateKey: string) =>
+    [
+      ...(simulatedBookings[dateKey] ?? []),
+      ...getSchedules()
+        .filter(
+          (schedule) =>
+            schedule.propertyTitle === propertyTitle &&
+            schedule.date === dateKey &&
+            schedule.status !== "cancelado",
+        )
+        .map((schedule) => schedule.time),
+    ];
+
+  const getBookedTimesByDate = (dateKey: string) =>
+    [
+      ...getPersistedBookedTimesByDate(dateKey),
+      ...selectedOptions
+        .filter((option) => option.date === dateKey)
+        .map((option) => option.time),
+    ];
 
   const handleAddOption = () => {
-    if (!activeDateKey || !selectedTime) {
+    if (!selectedDateKeys.length || !selectedTimes.length) {
       return;
     }
 
-    const alreadyExists = selectedOptions.some(
-      (option) => option.date === activeDateKey && option.time === selectedTime,
+    const nextOptions = [...selectedOptions];
+    const existingCombinations = new Set(
+      selectedOptions.map((option) => `${option.date}-${option.time}`),
     );
+    let added = 0;
+    let skippedBooked = 0;
+    let skippedDuplicate = 0;
 
-    if (alreadyExists) {
-      setFeedbackMessage("Essa combinação de data e horário já foi adicionada.");
+    selectedDateKeys.forEach((dateKey) => {
+      const unavailableTimes = new Set(getPersistedBookedTimesByDate(dateKey));
+
+      selectedTimes.forEach((time) => {
+        const combinationKey = `${dateKey}-${time}`;
+        if (unavailableTimes.has(time)) {
+          skippedBooked += 1;
+          return;
+        }
+        if (existingCombinations.has(combinationKey)) {
+          skippedDuplicate += 1;
+          return;
+        }
+
+        nextOptions.push({ date: dateKey, time });
+        existingCombinations.add(combinationKey);
+        added += 1;
+      });
+    });
+
+    if (!added) {
+      setFeedbackMessage(
+        skippedDuplicate
+          ? "As combinacoes selecionadas ja foram adicionadas."
+          : "Nenhuma combinacao disponivel para as datas e horarios selecionados.",
+      );
       return;
     }
 
-    setSelectedOptions((current) => [...current, { date: activeDateKey, time: selectedTime }]);
-    setSelectedTime("");
-    setFeedbackMessage("");
+    setSelectedOptions(nextOptions);
+    setSelectedTimes([]);
+    if (skippedBooked || skippedDuplicate) {
+      setFeedbackMessage(
+        `${added} combinacao(oes) adicionada(s). ${skippedBooked} indisponivel(is) e ${skippedDuplicate} duplicada(s) ignorada(s).`,
+      );
+    } else {
+      setFeedbackMessage("");
+    }
     setConfirmed(false);
   };
 
@@ -184,7 +251,19 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
       `${first.date}-${first.time}`.localeCompare(`${second.date}-${second.time}`),
     );
 
-  const activeDateLabel = activeDate ? formatLongDate(activeDate) : "Selecione uma data";
+  const selectedDateLabel =
+    selectedDates.length === 0
+      ? "Selecione uma ou mais datas"
+      : selectedDates.length === 1
+      ? formatLongDate(selectedDates[0])
+      : `${selectedDates.length} datas selecionadas`;
+
+  const selectedTimeLabel =
+    selectedTimes.length === 0
+      ? "Selecione um ou mais horarios"
+      : selectedTimes.length === 1
+      ? selectedTimes[0]
+      : `${selectedTimes.length} horarios selecionados`;
 
   return (
     <Dialog>
@@ -199,120 +278,144 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
         </motion.button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-6xl overflow-hidden rounded-[32px] border-0 p-0">
-        <DialogHeader className="border-b border-slate-200 px-6 py-5 sm:px-8">
-          <DialogTitle className="text-2xl text-[#0F172A]">Reservar horarios</DialogTitle>
+      <DialogContent className="max-h-[95vh] w-[calc(100%-1rem)] overflow-x-hidden overflow-y-auto rounded-2xl border-0 p-0 sm:max-h-[92vh] sm:rounded-[32px] md:w-[min(94vw,1200px)] md:max-w-none md:aspect-video">
+        <DialogHeader className="border-b border-slate-200 px-4 py-4 sm:px-8 sm:py-5">
+          <DialogTitle className="pr-8 text-xl text-[#0F172A] sm:text-2xl">Reservar horarios</DialogTitle>
           <DialogDescription className="mt-2 text-slate-500">
             Escolha uma ou mais datas e combine com horarios comerciais para reservar <strong>{propertyTitle}</strong>.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 py-6 sm:px-8">
-          <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="px-4 py-4 sm:px-8 sm:py-6">
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:rounded-[28px]">
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-2xl border border-slate-300 bg-white px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Data</p>
-                <p className="mt-2 text-sm font-semibold text-[#0F172A]">{activeDateLabel}</p>
+                <p className="mt-2 text-sm font-semibold text-[#0F172A]">{selectedDateLabel}</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Horario</p>
-                <p className="mt-2 text-sm font-semibold text-[#0F172A]">
-                  {selectedTime || "Selecione um horario comercial"}
-                </p>
+                <p className="mt-2 text-sm font-semibold text-[#0F172A]">{selectedTimeLabel}</p>
               </div>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Opcoes</p>
                 <p className="mt-2 text-sm font-semibold text-[#0F172A]">
-                  {selectedOptions.length} data(s) e horario(s) adicionados
+                  {selectedOptions.length} combinacao(oes) adicionada(s)
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-            <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-              <div className="mb-5 text-center">
-                <h3 className="text-xl font-semibold text-[#0F172A]">Escolha as datas</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Calendario com navegacao em dois meses, inspirado no visual do Airbnb.
-                </p>
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.75fr)_minmax(320px,1fr)]">
+            <div className="min-w-0 rounded-[28px] border border-[#DDDDDD] bg-white p-4 shadow-sm sm:p-6 xl:p-8">
+              <div className="mb-6 flex items-end justify-between">
+                <div>
+                  <h3 className="text-xl font-semibold text-[#222222]">Escolha as datas</h3>
+                  <p className="mt-1 text-sm text-[#6A6A6A]">
+                    Selecione um ou mais dias para montar sua reserva.
+                  </p>
+                </div>
               </div>
 
               <Calendar
-                mode="single"
+                mode="multiple"
                 month={month}
                 onMonthChange={setMonth}
-                selected={activeDate}
-                onSelect={(date) => {
-                  if (!date || isDateDisabled(date)) {
-                    return;
+                selected={selectedDates}
+                onSelect={(dates) => {
+                  const nextDates = (dates ?? []).filter((date) => !isDateDisabled(date));
+                  setSelectedDates(nextDates);
+                  if (!nextDates.length) {
+                    setFocusedDate(undefined);
+                    setSelectedTimes([]);
+                  } else if (
+                    !focusedDate ||
+                    !nextDates.some(
+                      (date) => formatDateKey(date) === formatDateKey(focusedDate),
+                    )
+                  ) {
+                    setFocusedDate(nextDates[0]);
                   }
-                  setActiveDate(date);
-                  setSelectedTime("");
                   setConfirmed(false);
                 }}
+                onDayClick={(date, modifiers) => {
+                  if (!modifiers.disabled) {
+                    setFocusedDate(date);
+                  }
+                }}
                 disabled={isDateDisabled}
-                numberOfMonths={2}
+                numberOfMonths={isMobile || isCompactScreen ? 1 : 2}
                 pagedNavigation
                 showOutsideDays={false}
-                className="mx-auto w-fit p-0"
+                className="mx-auto w-full max-w-fit p-0"
                 classNames={{
-                  months: "flex flex-col gap-10 lg:flex-row lg:gap-14",
-                  month: "space-y-4",
-                  caption: "relative flex items-center justify-center pt-1",
-                  caption_label: "text-base font-semibold capitalize text-[#0F172A]",
+                  months: "flex flex-col items-center gap-10 2xl:flex-row 2xl:items-start 2xl:gap-14",
+                  month: "w-full max-w-[330px] space-y-3",
+                  caption: "relative mb-1 flex h-10 items-center justify-center",
+                  caption_label: "text-[22px] font-semibold leading-6 capitalize text-[#222222]",
                   nav_button:
-                    "absolute top-0 inline-flex size-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-[#0F172A]",
+                    "absolute top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#DDDDDD] bg-white text-[#222222] transition hover:border-[#B0B0B0] hover:bg-[#F7F7F7] sm:size-9",
                   nav_button_previous: "-left-1",
                   nav_button_next: "-right-1",
-                  head_row: "flex w-full",
-                  head_cell: "w-12 text-[12px] font-medium text-slate-400",
-                  row: "mt-2 flex w-full",
-                  cell: "relative h-12 w-12 p-0 text-center text-sm",
-                  day: "h-12 w-12 rounded-full p-0 font-medium text-slate-700 hover:bg-slate-100 hover:text-[#0F172A]",
+                  head_row: "grid grid-cols-7 gap-1",
+                  head_cell:
+                    "flex h-9 w-9 items-center justify-center text-[12px] font-medium text-[#717171] sm:h-10 sm:w-10",
+                  row: "mt-1 grid grid-cols-7 gap-1",
+                  cell: "relative h-9 w-9 p-0 text-center text-sm sm:h-10 sm:w-10",
+                  day: "h-9 w-9 rounded-full p-0 text-[14px] font-medium text-[#222222] transition hover:bg-[#F2F2F2] sm:h-10 sm:w-10",
                   day_selected:
-                    "bg-[#0F172A] text-white hover:bg-[#0F172A] hover:text-white focus:bg-[#0F172A] focus:text-white",
-                  day_today: "border border-slate-300 bg-white text-[#0F172A]",
-                  day_disabled: "cursor-not-allowed text-slate-300 line-through opacity-100",
+                    "bg-[#222222] text-white hover:bg-[#222222] hover:text-white focus:bg-[#222222] focus:text-white",
+                  day_today: "border border-[#B0B0B0] bg-white text-[#222222]",
+                  day_disabled: "cursor-not-allowed text-[#D0D0D0] line-through opacity-100",
                 }}
                 modifiers={{
                   added: selectedOptions.map((option) => dateFromKey(option.date)),
                 }}
                 modifiersClassNames={{
-                  added: "border border-cyan-500 bg-cyan-50 text-[#0F172A] hover:bg-cyan-100",
+                  added: "border border-[#222222] bg-[#F7F7F7] text-[#222222] hover:bg-[#EEEEEE]",
                 }}
               />
             </div>
 
-            <div className="space-y-6">
-              <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F172A] text-white">
-                    <Clock3 className="size-5" />
+            <div className="space-y-5 xl:sticky xl:top-4 xl:self-start">
+              <div className="rounded-[28px] border border-[#DDDDDD] bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DDDDDD] bg-white text-[#222222]">
+                    <Clock3 className="size-4" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">Horarios comerciais</p>
-                    <h3 className="text-lg font-semibold text-[#0F172A]">Escolha um horario</h3>
+                    <p className="text-sm text-[#6A6A6A]">Horarios comerciais</p>
+                    <h3 className="text-[30px] leading-8 font-semibold text-[#222222]">Escolha um horario</h3>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5">
                   {COMMERCIAL_HOURS.map((hour) => {
-                    const isBooked = bookedTimes.includes(hour);
-                    const isSelected = selectedTime === hour;
+                    const isBookedForAllSelectedDates =
+                      selectedDateKeys.length > 0 &&
+                      selectedDateKeys.every((dateKey) =>
+                        getBookedTimesByDate(dateKey).includes(hour),
+                      );
+                    const isSelected = selectedTimes.includes(hour);
 
                     return (
                       <button
                         key={hour}
                         type="button"
-                        disabled={!activeDate || isBooked}
-                        onClick={() => setSelectedTime(hour)}
-                        className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
-                          isBooked
-                            ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                        disabled={!selectedDateKeys.length || isBookedForAllSelectedDates}
+                        onClick={() =>
+                          setSelectedTimes((current) =>
+                            current.includes(hour)
+                              ? current.filter((time) => time !== hour)
+                              : [...current, hour],
+                          )
+                        }
+                        className={`rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                          isBookedForAllSelectedDates
+                            ? "cursor-not-allowed border-[#EAEAEA] bg-[#F7F7F7] text-[#B0B0B0]"
                             : isSelected
-                            ? "border-[#0F172A] bg-[#0F172A] text-white shadow-lg"
-                            : "border-slate-200 bg-white text-slate-700 hover:border-[#0F172A] hover:text-[#0F172A]"
+                            ? "border-[#222222] bg-[#222222] text-white"
+                            : "border-[#DDDDDD] bg-white text-[#222222] hover:border-[#222222]"
                         }`}
                       >
                         {hour}
@@ -324,17 +427,17 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
                 <button
                   type="button"
                   onClick={handleAddOption}
-                  disabled={!activeDate || !selectedTime}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!selectedDateKeys.length || !selectedTimes.length}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF385C] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#E61E4D] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Plus className="size-4" />
-                  Adicionar data e horario
+                  Adicionar combinacoes
                 </button>
               </div>
 
-              <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
-                <h3 className="text-lg font-semibold text-[#0F172A]">Opcoes selecionadas</h3>
-                <p className="mt-1 text-sm text-slate-500">
+              <div className="rounded-[28px] border border-[#DDDDDD] bg-white p-4 shadow-sm sm:p-5">
+                <h3 className="text-lg font-semibold text-[#222222]">Opcoes selecionadas</h3>
+                <p className="mt-1 text-sm text-[#6A6A6A]">
                   Monte quantas combinacoes quiser antes de confirmar a reserva.
                 </p>
 
@@ -343,16 +446,16 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
                     {selectedSummary.map((option) => (
                       <div
                         key={`${option.date}-${option.time}`}
-                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                        className="flex items-center justify-between rounded-2xl border border-[#EAEAEA] bg-[#F7F7F7] px-4 py-3"
                       >
                         <div>
-                          <p className="text-sm font-semibold text-[#0F172A]">{option.label}</p>
-                          <p className="text-xs text-slate-500">{option.time}</p>
+                          <p className="text-sm font-semibold text-[#222222]">{option.label}</p>
+                          <p className="text-xs text-[#6A6A6A]">{option.time}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleRemoveOption(option)}
-                          className="rounded-full p-2 text-slate-500 transition hover:bg-white hover:text-red-600"
+                          className="rounded-full p-2 text-[#6A6A6A] transition hover:bg-white hover:text-red-600"
                           aria-label="Remover opcao"
                         >
                           <Trash2 className="size-4" />
@@ -361,7 +464,7 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  <div className="mt-4 rounded-2xl border border-dashed border-[#DDDDDD] bg-[#F7F7F7] px-4 py-6 text-sm text-[#6A6A6A]">
                     Selecione uma data no calendario, escolha um horario comercial e adicione sua primeira opcao.
                   </div>
                 )}
@@ -371,7 +474,7 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
 
           <DialogFooter className="mt-6 gap-3">
             <DialogClose asChild>
-              <button className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+              <button className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto">
                 Fechar
               </button>
             </DialogClose>
@@ -379,7 +482,7 @@ export function ScheduleVisitModal({ propertyTitle }: ScheduleVisitModalProps) {
               type="button"
               onClick={handleConfirm}
               disabled={!selectedOptions.length}
-              className="rounded-2xl bg-[#0F172A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-2xl bg-[#0F172A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
               Confirmar reserva
             </button>
