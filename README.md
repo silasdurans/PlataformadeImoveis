@@ -116,6 +116,60 @@ import { properties } from "./data/properties";
 
 ---
 
+## 🤖 Busca com Ollama
+
+A busca inteligente principal está preparada para usar `Ollama` local no backend, sem depender de chave paga.
+
+### Setup rápido
+
+1. Instale o Ollama
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+2. Baixe um modelo leve
+```bash
+ollama pull qwen2.5:3b
+```
+
+3. Crie o arquivo `backend/.env` a partir de [backend/.env.example](/home/silasdurans/Documentos/dev/Projetogruposp0/backend/.env.example)
+
+4. Suba o Ollama
+```bash
+ollama serve
+```
+
+5. Rode tudo com um comando
+```bash
+npm run dev:full
+```
+
+Ou, se quiser subir somente a API com verificação da IA:
+```bash
+npm run dev:ai
+```
+
+Se o `Ollama` ja estiver instalado, o script tenta iniciar `ollama serve` automaticamente quando necessario.
+Se o `Ollama` nao estiver disponivel, `npm run dev:full` e `npm run dev:ai` continuam subindo o backend com fallback local.
+Para exigir IA local obrigatoriamente, use:
+```bash
+npm run dev:ai:strict
+```
+
+### Configuração padrão
+
+```env
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:3b
+PORT=3001
+```
+
+### Observação
+
+Se o Ollama não estiver disponível, o frontend continua funcionando com o fallback local da busca heurística.
+
+---
+
 ## 📝 Convenções de Nomenclatura
 
 ### **Arquivos TypeScript/React**

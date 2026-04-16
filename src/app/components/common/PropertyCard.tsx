@@ -15,6 +15,7 @@ interface PropertyCardProps {
   capacity: number;
   rating: number;
   type: string;
+  matchReasons?: string[];
 }
 
 export function PropertyCard({ 
@@ -26,7 +27,8 @@ export function PropertyCard({
   size, 
   capacity, 
   rating,
-  type 
+  type,
+  matchReasons = [],
 }: PropertyCardProps) {
   const [isFavorite, setIsFavorite] = useState(false);
 
@@ -105,6 +107,19 @@ export function PropertyCard({
               </div>
             </div>
           </div>
+
+          {!!matchReasons.length && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {matchReasons.slice(0, 2).map((reason) => (
+                <span
+                  key={reason}
+                  className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-700"
+                >
+                  bate com: {reason}
+                </span>
+              ))}
+            </div>
+          )}
           
           <div className="flex items-center justify-between">
             <div>
