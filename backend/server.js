@@ -1,4 +1,8 @@
-require("dotenv").config();
+try {
+  require("dotenv").config();
+} catch {
+  // Em produção no Render, as variáveis podem vir direto do ambiente.
+}
 /**
  * Servidor Express da aplicação. Inicializa o banco SQLite, normaliza os dados e expõe a API usada pelo frontend.
  */
