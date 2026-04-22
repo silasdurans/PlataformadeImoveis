@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "postinstall": "npm --prefix backend install",
     "build": "vite build",
     "build:deploy": "vite build",
     "dev": "vite",
