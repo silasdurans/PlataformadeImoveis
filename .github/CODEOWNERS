@@ -1,0 +1,21 @@
+# CODEOWNERS file
+# Define ownership of code sections for automated PR reviews
+
+# Global code owners
+* @silasdurans
+
+# Frontend components
+/src/app/components/ @silasdurans
+
+# Backend
+/backend/ @silasdurans
+
+# Styling
+/src/styles/ @silasdurans
+
+# Documentation
+*.md @silasdurans
+/docs/ @silasdurans
+
+# GitHub specific
+/.github/ @silasdurans
