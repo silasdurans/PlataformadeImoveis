@@ -6,6 +6,12 @@ dist/
 # Vite local cache
 node_modules/.vite/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+backend/.env
+
 # Local database / runtime state
 backend/properties.db
 backend/*.db

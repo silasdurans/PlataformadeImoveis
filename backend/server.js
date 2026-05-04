@@ -46,8 +46,8 @@ app.use(express.json());
 
 const CLIENT_SESSION_COOKIE = "grupo_sp_client_session";
 const ADMIN_SESSION_COOKIE = "grupo_sp_admin_session";
-const ADMIN_EMAIL = "admin@saopauloparticipacoes.com.br";
-const ADMIN_PASSWORD = "admin123";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@saopauloparticipacoes.com.br";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
 const officeImages = [
   "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80",
