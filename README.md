@@ -1,19 +1,179 @@
 # 🏢 Plataforma Imobiliária - Grupo São Paulo Participações
 
-Plataforma moderna de imóveis comerciais com busca inteligente por IA, construída com React, TypeScript e Tailwind CSS v4.
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
+> Plataforma moderna de imóveis comerciais com busca inteligente por IA, construída com React, TypeScript e Tailwind CSS v4.
+
+---
+
+## ✨ Destaques
+
+- 🤖 **Busca Inteligente com IA** - Interpretação semântica usando Ollama local
+- 💬 **Chatbot Assistente** - Suporte em tempo real para navegação e agendamento
+- 🔍 **Filtros Avançados** - 8 categorias de filtros inteligentes
+- 📊 **Dashboard Admin** - Gestão completa de imóveis
+- 📱 **Design Responsivo** - Mobile-first com animações fluidas
+- ⚡ **Performance** - Otimizado com Vite e lazy-loading
+
+---
+
+---
+
+## 🚀 Quick Start
+
+### Pré-requisitos
+- **Node.js** 18+ e npm/yarn
+- **Git**
+- *(Opcional)* **Ollama** para IA local
+
+### Instalação Rápida
+
+```bash
+# 1. Clone o repositório
+git clone https://github.com/silasdurans/PlataformadeImoveis.git
+cd PlataformadeImoveis
+
+# 2. Instale dependências
+npm install
+
+# 3. Configure o ambiente (opcional)
+cp backend/.env.example backend/.env
+
+# 4. Inicie o projeto
+npm run dev        # Frontend apenas
+npm run dev:full   # Frontend + Backend (requer Node)
+```
+
+### Acessar a Aplicação
+
+- **Frontend:** http://localhost:5173
+- **Backend:** http://localhost:3001
+- **Admin:** http://localhost:5173/admin/login
+
+---
+
+## 📖 Documentação Completa
+
+### 🛠️ Tecnologias
+
+| Tecnologia | Versão | Propósito |
+|------------|--------|----------|
+| **React** | 19 | Framework UI |
+| **TypeScript** | 5 | Tipagem estática |
+| **Tailwind CSS** | 4 | Estilização utilitária |
+| **Vite** | 5 | Build tool |
+| **React Router** | 6 | Roteamento SPA |
+| **Framer Motion** | 11 | Animações |
+| **Lucide React** | - | Ícones modernos |
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+PlataformadeImoveis/
+├── src/
+│   ├── app/
+│   │   ├── components/
+│   │   │   ├── layout/          → Header, Footer
+│   │   │   ├── common/          → PropertyCard, InstitutionalBanner
+│   │   │   ├── ui/              → Componentes base (Button, Input, etc)
+│   │   │   └── figma/           → Componentes do Figma
+│   │   ├── pages/               → Home, Results, PropertyDetail, AdminDashboard
+│   │   ├── data/                → Mock de propriedades
+│   │   ├── lib/                 → Utilitários (aiSearch, clientSession, etc)
+│   │   └── routes.tsx           → Configuração de rotas
+│   ├── styles/                  → CSS global e tema
+│   ├── assets/                  → Imagens e recursos
+│   └── main.tsx                 → Entrada da aplicação
+├── backend/
+│   ├── server.js                → API Express
+│   ├── properties.db            → Banco SQLite (local)
+│   └── .env.example             → Variáveis de ambiente
+├── index.html                   → HTML base
+├── vite.config.ts               → Configuração Vite
+├── tsconfig.json                → Configuração TypeScript
+├── tailwind.config.js           → Configuração Tailwind
+└── package.json                 → Dependências
+```
+
+---
+
+## 🤖 Busca com IA (Ollama)
+
+### Setup Completo da IA
+
+```bash
+# 1. Instale o Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 2. Baixe um modelo leve
+ollama pull qwen2.5:3b
+
+# 3. Configure o backend
+cp backend/.env.example backend/.env
+
+# 4. Inicie tudo
+npm run dev:full
+```
+
+### Comandos Disponíveis
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run dev` | Frontend + Vite (sem backend) |
+| `npm run dev:full` | Frontend + Backend com IA automática |
+| `npm run dev:ai` | Apenas Backend com IA |
+| `npm run dev:ai:strict` | Backend IA obrigatória (falha sem Ollama) |
+| `npm run build` | Build otimizado para produção |
+| `npm run preview` | Preview do build |
+
+### Configuração de Ambiente
+
+```env
+# backend/.env
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:3b
+ADMIN_EMAIL=admin@saopauloparticipacoes.com.br
+ADMIN_PASSWORD=sua_senha_segura_aqui
+PORT=3001
+HOST=0.0.0.0
+```
+
+> **Nota:** Se o Ollama não estiver disponível, a busca usa fallback local automático.
+
+---
+
+## 🔐 Painel Administrativo
+
+**URL:** http://localhost:5173/admin/login
+
+**Credenciais de Demonstração:**
+```
+Email: admin@saopauloparticipacoes.com.br
+Senha: (configure em backend/.env)
+```
+
+**Funcionalidades:**
+- ✅ Gerenciar imóveis
+- ✅ Visualizar agenda de visitas
+- ✅ Ver histórico de consultas
+- ✅ Gerenciar usuários
 
 ---
 
 ## 📁 Estrutura de Arquivos Organizada
 
 ### 🎨 **CSS** (`/src/styles/`)
-Arquivos de estilo globais e tema customizado:
 ```
 /src/styles/
 ├── fonts.css       → Importação de fontes
 ├── index.css       → Estilos base
 ├── tailwind.css    → Configuração Tailwind v4
-└── theme.css       → Tema customizado (cores, tokens)
+└── theme.css       → Tema customizado
 ```
 
 ### ⚛️ **TypeScript/React** (`/src/app/`)
@@ -21,274 +181,158 @@ Arquivos de estilo globais e tema customizado:
 #### 📦 **Componentes** (`/src/app/components/`)
 ```
 /src/app/components/
-├── 📁 layout/              → Componentes de Layout
-│   ├── Header.tsx          → Cabeçalho principal
-│   ├── Footer.tsx          → Rodapé
-│   └── index.ts            → Exports centralizados
-│
-├── 📁 common/              → Componentes Reutilizáveis
-│   ├── PropertyCard.tsx    → Card de imóvel
-│   ├── InstitutionalBanner.tsx → Banner do Grupo SP
-│   └── index.ts            → Exports centralizados
-│
-├── 📁 features/            → Funcionalidades Específicas
-│   ├── AIAgent.tsx         → Agente de IA (chatbot flutuante)
-│   └── Chatbot.tsx         → Chatbot auxiliar
-│
-├── 📁 ui/                  → Componentes UI Base
-│   └── ...                 → Botões, inputs, etc.
-│
-└── 📁 figma/               → Componentes do Figma
-    └── ImageWithFallback.tsx → (Protegido - não editar)
+├── layout/              → Layout principal
+├── common/              → Componentes reutilizáveis
+├── ui/                  → Componentes base UI
+├── figma/               → Componentes do Figma
+└── AIAgent.tsx          → Chatbot flutuante
 ```
 
 #### 📄 **Páginas** (`/src/app/pages/`)
 ```
 /src/app/pages/
-├── Home.tsx                → Página inicial
-├── Results.tsx             → Listagem de imóveis
-├── PropertyDetail.tsx      → Detalhes do imóvel
-├── AdminLogin.tsx          → Login administrativo
-└── AdminDashboard.tsx      → Painel administrativo
-```
-
-#### 📊 **Dados** (`/src/app/data/`)
-```
-/src/app/data/
-└── properties.ts           → Mock de propriedades
+├── Home.tsx             → Página inicial
+├── Results.tsx          → Listagem de imóveis
+├── PropertyDetail.tsx   → Detalhes do imóvel
+├── AdminLogin.tsx       → Login administrativo
+└── AdminDashboard.tsx   → Dashboard admin
 ```
 
 ---
 
 ## 🔄 Como Importar Arquivos
 
-### ✅ **Imports Corretos**
+### ✅ Imports Recomendados
 
 ```typescript
-// ========================================
 // Layout Components
-// ========================================
-import { Header } from "./components/layout/Header";
-import { Footer } from "./components/layout/Footer";
-// Ou usando o index:
-import { Header, Footer } from "./components/layout";
+import { Header, Footer } from "@/app/components/layout";
 
-// ========================================
 // Common Components
-// ========================================
-import { PropertyCard } from "./components/common/PropertyCard";
-import { InstitutionalBanner } from "./components/common/InstitutionalBanner";
-// Ou usando o index:
-import { PropertyCard, InstitutionalBanner } from "./components/common";
+import { PropertyCard, InstitutionalBanner } from "@/app/components/common";
 
-// ========================================
-// Feature Components
-// ========================================
-import { AIAgent } from "./components/AIAgent";
-import { Chatbot } from "./components/Chatbot";
-
-// ========================================
 // Pages
-// ========================================
-import Home from "./pages/Home";
-import Results from "./pages/Results";
-import PropertyDetail from "./pages/PropertyDetail";
-import AdminLogin from "./pages/AdminLogin";
-import AdminDashboard from "./pages/AdminDashboard";
+import Home from "@/app/pages/Home";
 
-// ========================================
 // Data
-// ========================================
-import { properties } from "./data/properties";
+import { properties } from "@/app/data/properties";
 ```
 
 ---
 
-## 🚀 Tecnologias
+## 📝 Convenções
 
-- **React 19** - Framework UI
-- **TypeScript** - Tipagem estática
-- **Tailwind CSS v4** - Estilização utilitária
-- **Motion (Framer Motion)** - Animações fluidas
-- **React Router** - Roteamento SPA
-- **Lucide React** - Ícones modernos
-- **Vite** - Build tool ultra-rápida
+### Nomenclatura de Arquivos
+- **PascalCase** para componentes React: `Header.tsx`
+- **camelCase** para utilidades: `formatDate.ts`
+- **kebab-case** para CSS: `theme.css`
 
----
-
-## 🤖 Estratégia de IA
-
-Hoje o projeto adota uma estratégia simples e explícita:
-
-- **Busca principal com IA:** a experiência oficial de IA está na `Home` e em `Resultados`, usando `Ollama` no backend quando disponível.
-- **Fallback local de busca:** se o `Ollama` não estiver disponível, a aplicação continua funcionando com ranking heurístico local.
-- **Chatbot flutuante:** o `AIAgent` permanece local, com respostas guiadas por regras do produto e fluxo confiável de agendamento. Ele **não** depende do `Ollama`.
-
-Isso evita sobreposição de responsabilidades:
-
-- a **busca** é a interface inteligente para descobrir imóveis
-- o **chatbot** é um assistente rápido para navegação e agendamento
+### Estrutura de Pastas
+- Pastas em **singular**: `component/`, `page/`
+- Pastas em **kebab-case**: `layout/`, `common/`
 
 ---
 
-## 🤖 Busca com Ollama
+## 🎯 Funcionalidades Principais
 
-A busca inteligente principal está preparada para usar `Ollama` local no backend, sem depender de chave paga.
+### 🏠 Usuário Final
+- ✅ Busca semântica com IA
+- ✅ Filtros avançados
+- ✅ Detalhes completos de imóveis
+- ✅ Agendamento de visitas
+- ✅ Chatbot de suporte
 
-### Setup rápido
-
-1. Instale o Ollama
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-2. Baixe um modelo leve
-```bash
-ollama pull qwen2.5:3b
-```
-
-3. Crie o arquivo `backend/.env` a partir de [backend/.env.example](/home/silasdurans/Documentos/dev/Projetogruposp0/backend/.env.example)
-
-4. O serviço costuma subir automaticamente após a instalação. Se precisar iniciar manualmente:
-```bash
-ollama serve
-```
-
-5. Rode tudo com um comando
-```bash
-npm run dev:full
-```
-
-Ou, se quiser subir somente a API com verificação da IA:
-```bash
-npm run dev:ai
-```
-
-Se o `Ollama` ja estiver instalado, o script tenta iniciar `ollama serve` automaticamente quando necessario.
-Se o `Ollama` nao estiver disponivel, `npm run dev:full` e `npm run dev:ai` continuam subindo o backend com fallback local.
-Para exigir IA local obrigatoriamente, use:
-```bash
-npm run dev:ai:strict
-```
-
-### Configuração padrão
-
-```env
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen2.5:3b
-PORT=3001
-```
-
-### Observações
-
-- Se o `Ollama` não estiver disponível, o frontend continua funcionando com o fallback local da busca heurística.
-- O chatbot da interface **não usa Ollama** neste momento.
-- O comando `npm run dev:full` sobe o frontend e o backend preparado para busca com IA.
+### 🔧 Administrador
+- ✅ Dashboard completo
+- ✅ Gerenciar propriedades
+- ✅ Visualizar agendamentos
+- ✅ Análise de consultas
 
 ---
 
-## 🛠️ Higiene do Repositório
+## 🌐 Deployment
 
-Arquivos gerados localmente não fazem parte do versionamento:
+### Deploy no Render
 
-- `dist/`
-- `node_modules/.vite/`
-- `backend/properties.db`
-
-Se algum deles já tiver sido rastreado antes, remova do índice uma vez:
+O projeto já está configurado para deploy:
 
 ```bash
-git rm -r --cached dist node_modules/.vite backend/properties.db
+# Build automático
+npm run build
+
+# Arquivo: render.yaml
+# (Já configurado no repositório)
+```
+
+**Variáveis de Ambiente (Production):**
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `OLLAMA_BASE_URL` (se usar IA externa)
+- `OLLAMA_MODEL`
+
+---
+
+## 📊 Arquitetura da IA
+
+```
+┌─────────────────────────────────────┐
+│       Frontend (React)              │
+│  - Home: Busca com IA               │
+│  - Results: Listagem filtrada       │
+│  - ChatBot: Suporte local           │
+└────────────┬────────────────────────┘
+             │
+             └──────────────────┐
+                                │
+                    ┌───────────▼──────────┐
+                    │   Backend (Express)  │
+                    │  - API REST          │
+                    │  - SQLite DB         │
+                    │  - Ollama Client     │
+                    └───────────┬──────────┘
+                                │
+                    ┌───────────▼──────────┐
+                    │  Ollama (IA Local)   │
+                    │  - qwen2.5:3b        │
+                    │  - Busca Semântica   │
+                    └──────────────────────┘
 ```
 
 ---
 
-## 📝 Convenções de Nomenclatura
+## 🛡️ Segurança
 
-### **Arquivos TypeScript/React**
-- **PascalCase** para componentes: `Header.tsx`, `PropertyCard.tsx`
-- **camelCase** para utilities: `formatDate.ts`, `apiHelpers.ts`
-
-### **Arquivos CSS**
-- **kebab-case**: `fonts.css`, `theme.css`
-
-### **Pastas**
-- **kebab-case ou singular**: `layout/`, `common/`, `features/`
+- ✅ Credenciais em variáveis de ambiente
+- ✅ `.env` não versionado
+- ✅ Backend protegido com autenticação
+- ✅ XSS protection ativado
+- ✅ CORS configurado
 
 ---
 
-## 🔐 Painel Administrativo
+## 🤝 Contribuindo
 
-**URL:** `/admin/login`
-
-**Credenciais de Demonstração:**
-```
-Email: admin@saopauloparticipacoes.com.br
-Senha: admin123
-```
+1. Faça um Fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
 
 ---
 
-## 🎯 Funcionalidades
+## 📝 Licença
 
-### ✨ **Principais**
-- 🤖 **Busca Inteligente com IA** - Interpretação semântica na Home e nos Resultados
-- 💬 **Chatbot de apoio** - Assistência local para navegação e agendamento
-- 🔍 **Filtros Ultra Avançados** - 8 categorias de filtros (tipo, preço, área, etc.)
-- 📊 **Painel Administrativo** - Dashboard completo para gestão
-- 🏢 **Banner Institucional** - Apresentação do Grupo São Paulo
-- 📱 **Design Responsivo** - Mobile-first
-- 🎨 **Animações Fluidas** - Motion (Framer Motion)
-- ⚡ **Performance** - Carregamento otimizado com rotas lazy-loaded
-
-### 🎨 **Design**
-- Glassmorphism
-- Gradientes vibrantes
-- Sombras elaboradas
-- Micro-interações
-- Dark/Light mode ready
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ---
 
-## 📂 Benefícios da Organização
+## 👥 Autores
 
-### ✅ **Manutenibilidade**
-- Fácil localização de arquivos por tipo
-- Estrutura escalável e padronizada
-- Separação clara de responsabilidades
+**Desenvolvido por:** Grupo São Paulo Participações
 
-### ✅ **DX (Developer Experience)**
-- Navegação intuitiva entre arquivos
-- Imports mais claros e diretos
-- Facilita trabalho em equipe
-
-### ✅ **Performance**
-- Tree-shaking otimizado
-- Lazy loading facilitado
-- Builds mais rápidos
-
----
-
-## 🗂️ Mapeamento de Arquivos Principais
-
-| Tipo | Pasta | Descrição |
-|------|-------|-----------|
-| **CSS** | `/src/styles/` | Estilos globais e tema |
-| **Componentes Layout** | `/src/app/components/layout/` | Header, Footer |
-| **Componentes Comuns** | `/src/app/components/common/` | Cards, Banners |
-| **Funcionalidades** | `/src/app/components/features/` | AIAgent, Chatbot |
-| **Páginas** | `/src/app/pages/` | Rotas da aplicação |
-| **Dados** | `/src/app/data/` | Mocks e dados estáticos |
-| **Assets** | `/src/imports/` | Imagens e SVGs |
-
----
-
-## 🔗 Links Importantes
-
-- **Site Institucional:** https://saopauloparticipacoes.com.br/
-- **Painel Admin:** `/admin/login`
-- **Página Inicial:** `/`
-- **Busca de Imóveis:** `/resultados`
+**Colaboradores:**
+- Leonardo Fernandes ([@lfernandozzz](https://github.com/lfernandozzz))
+- Silas Durans ([@silasdurans](https://github.com/silasdurans))
 
 ---
 
@@ -298,6 +342,22 @@ Senha: admin123
 - 📍 Av. São Luís, 100 - São Paulo, SP
 - 📞 +55 (11) 3000-0000
 - ✉️ contato@spparticipacoes.com.br
+- 🌐 https://saopauloparticipacoes.com.br
+
+---
+
+## 📌 Links Rápidos
+
+| Link | Descrição |
+|------|-----------|
+| [Home](http://localhost:5173) | Página inicial |
+| [Resultados](http://localhost:5173/resultados) | Busca de imóveis |
+| [Admin](http://localhost:5173/admin/login) | Painel administrativo |
+| [Issues](https://github.com/silasdurans/PlataformadeImoveis/issues) | Reportar bugs |
+
+---
+
+**⭐ Se este projeto foi útil para você, considere deixar uma star no GitHub!**
 
 ---
 
